@@ -103,12 +103,8 @@ export default function EnhancedDashboardLayout({ children, userRole = "particip
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-slate-200">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                HackHost
-              </span>
+              <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
+              <span className="text-xl font-bold text-slate-900">HackHost</span>
             </div>
             <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />

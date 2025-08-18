@@ -21,10 +21,8 @@ import {
   Home,
   Calendar,
   Users,
-  Trophy,
   MessageSquare,
   BarChart3,
-  Zap,
   ChevronDown,
 } from "lucide-react"
 import Link from "next/link"
@@ -80,7 +78,6 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
     { href: "/events", label: "Events", icon: Calendar },
     { href: "/teams", label: "Teams", icon: Users },
     { href: "/my-apply", label: "My Apply", icon: Users },
-    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { href: "/community", label: "Community", icon: MessageSquare },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ]
@@ -100,12 +97,12 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
         <div className="flex items-center justify-between h-14 md:h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-            <div className="w-8 md:w-10 h-8 md:h-10 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <Zap className="w-4 md:w-6 h-4 md:h-6 text-white" />
-            </div>
-            <span className="text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-              HackHost
-            </span>
+            <img
+              src="/hackhost-logo.png"
+              alt="HackHost"
+              className="h-8 md:h-10 w-auto rounded-md shadow-lg group-hover:scale-105 transition-transform"
+            />
+            <span className="text-xl md:text-2xl font-bold text-slate-900">HackHost</span>
           </Link>
 
           {/* Desktop Navigation */}

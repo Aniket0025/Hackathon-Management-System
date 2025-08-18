@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   title: "HackHost - Event & Hackathon Platform",
   description: "Modern platform for hosting innovation events and hackathons",
   generator: "v0.app",
+  icons: {
+    icon: "/hackhost-logo.png",
+    shortcut: "/hackhost-logo.png",
+    apple: "/hackhost-logo.png",
+  },
 }
 
 export default function RootLayout({
@@ -38,6 +43,8 @@ export default function RootLayout({
             <link rel="preconnect" href={apiBase} crossOrigin="anonymous" />
           </>
         ) : null}
+        {/* Fallback favicon for older browsers */}
+        <link rel="icon" href="/hackhost-logo.png" />
       </head>
       <body className="font-sans">
         <AdvancedNavigation />
