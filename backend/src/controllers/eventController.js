@@ -5,7 +5,15 @@ async function listEvents(req, res, next) {
     const { status, organizer } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    if (organizer) filter.organizer = organizer;
+
+    // If caller is an organizer, force filter to their own events
+    if (req.user && req.user.role === 'organizer') {
+      filter.organizer = req.user.id;
+    } else if (organizer) {
+      // Allow explicit organizer filter only for non-organizers/public
+      filter.organizer = organizer;
+    }
+
     const events = await Event.find(filter).sort({ createdAt: -1 }).populate('organizer', 'name');
     res.json({ events });
   } catch (err) {

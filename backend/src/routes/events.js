@@ -4,7 +4,7 @@ const { listEvents, getEvent, createEvent, updateEvent, deleteEvent } = require(
 const { registerForEvent } = require('../controllers/registrationController');
 const { auth, requireRoles } = require('../middleware/auth');
 
-router.get('/', listEvents);
+router.get('/', auth(false), listEvents);
 router.get('/:id', getEvent);
 // Public registration endpoint
 router.post('/:id/register', registerForEvent);
