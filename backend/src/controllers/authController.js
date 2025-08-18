@@ -51,4 +51,27 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me };
+async function updateMe(req, res, next) {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+
+    // Whitelist updatable fields
+    const allowed = ['name', 'organization', 'location', 'phone', 'bio', 'avatarUrl', 'social'];
+    const updates = {};
+    for (const key of allowed) {
+      if (typeof req.body[key] !== 'undefined') updates[key] = req.body[key];
+    }
+
+    // Prevent role/email/password changes from this endpoint
+    delete updates.role;
+    delete updates.email;
+    delete updates.password;
+
+    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true, runValidators: true }).select('-password');
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, updateMe };
