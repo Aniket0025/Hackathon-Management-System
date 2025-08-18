@@ -18,6 +18,14 @@ type EventItem = {
   location?: string
   status: "draft" | "upcoming" | "ongoing" | "completed"
   organizer?: { _id: string; name: string; email?: string }
+  fees?: number
+  website?: string
+  registrationDeadline?: string
+  participantType?: "individual" | "group"
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  registrationLimit?: number
 }
 
 export default function EventDetailsPage() {
@@ -77,6 +85,29 @@ export default function EventDetailsPage() {
                 )}
                 {event.organizer && (
                   <div className="flex items-center gap-2 md:col-span-2"><User className="w-4 h-4" /> Organized by {event.organizer.name}{event.organizer.email ? ` (${event.organizer.email})` : ""}</div>
+                )}
+                {typeof event.fees === "number" && (
+                  <div className="md:col-span-1">Fees: {event.fees === 0 ? "Free" : event.fees}</div>
+                )}
+                {event.website && (
+                  <div className="md:col-span-1 truncate">Website: <a className="text-cyan-700 underline" href={event.website} target="_blank" rel="noopener noreferrer">{event.website}</a></div>
+                )}
+                {event.registrationDeadline && (
+                  <div className="md:col-span-1">Registration Deadline: {fmtDate(event.registrationDeadline)}</div>
+                )}
+                {event.participantType && (
+                  <div className="md:col-span-1">Participant Type: {event.participantType === "individual" ? "Individual" : "Group"}</div>
+                )}
+                {typeof event.registrationLimit === "number" && (
+                  <div className="md:col-span-1">Registration Limit: {event.registrationLimit}</div>
+                )}
+                {(event.contactName || event.contactEmail || event.contactPhone) && (
+                  <div className="md:col-span-2 space-y-1">
+                    <div className="font-medium">Organizer Contact</div>
+                    {event.contactName && <div>Name: {event.contactName}</div>}
+                    {event.contactEmail && <div>Email: <a className="text-cyan-700 underline" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></div>}
+                    {event.contactPhone && <div>Phone: {event.contactPhone}</div>}
+                  </div>
                 )}
               </div>
               <div className="pt-2">

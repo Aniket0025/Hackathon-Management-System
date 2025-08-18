@@ -24,6 +24,14 @@ export default function CreateEventPage() {
     endDate: "",
     location: "",
     status: "upcoming" as "draft" | "upcoming" | "ongoing" | "completed",
+    fees: "",
+    website: "",
+    registrationDeadline: "",
+    participantType: "individual" as "individual" | "group",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    registrationLimit: "",
   })
 
   useEffect(() => {
@@ -69,6 +77,21 @@ export default function CreateEventPage() {
       setError("End date must be after start date.")
       return
     }
+    if (form.registrationDeadline && new Date(form.registrationDeadline) > new Date(form.endDate)) {
+      setError("Registration deadline must be on or before the event end date.")
+      return
+    }
+    if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
+      setError("Please provide a valid contact email.")
+      return
+    }
+    if (form.registrationLimit !== "") {
+      const n = Number(form.registrationLimit)
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+        setError("Registration limit must be a non-negative integer.")
+        return
+      }
+    }
 
     setSaving(true)
     try {
@@ -87,6 +110,14 @@ export default function CreateEventPage() {
           endDate: new Date(form.endDate).toISOString(),
           location: form.location || undefined,
           status: form.status,
+          fees: form.fees ? Number(form.fees) : undefined,
+          website: form.website || undefined,
+          registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
+          participantType: form.participantType,
+          contactName: form.contactName || undefined,
+          contactEmail: form.contactEmail || undefined,
+          contactPhone: form.contactPhone || undefined,
+          registrationLimit: form.registrationLimit !== "" ? Number(form.registrationLimit) : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -139,6 +170,32 @@ export default function CreateEventPage() {
                   <Label htmlFor="location">Location</Label>
                   <Input id="location" value={form.location} onChange={(e) => update("location", e.target.value)} />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fees">Fees (in your currency)</Label>
+                    <Input id="fees" type="number" min="0" step="0.01" value={form.fees} onChange={(e) => update("fees", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Official Website</Label>
+                    <Input id="website" type="url" placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="registrationDeadline">Registration Deadline</Label>
+                  <Input id="registrationDeadline" type="date" value={form.registrationDeadline} onChange={(e) => update("registrationDeadline", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="registrationLimit">Registration Limit</Label>
+                  <Input
+                    id="registrationLimit"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g., 500"
+                    value={form.registrationLimit}
+                    onChange={(e) => update("registrationLimit", e.target.value)}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select value={form.status} onValueChange={(v) => update("status", v)}>
@@ -152,6 +209,32 @@ export default function CreateEventPage() {
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Participant Type</Label>
+                  <Select value={form.participantType} onValueChange={(v) => update("participantType", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="group">Group</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactName">Organizer Contact Name</Label>
+                    <Input id="contactName" value={form.contactName} onChange={(e) => update("contactName", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactEmail">Organizer Contact Email</Label>
+                    <Input id="contactEmail" type="email" value={form.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPhone">Organizer Contact Phone</Label>
+                    <Input id="contactPhone" value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} />
+                  </div>
                 </div>
                 <div className="pt-2">
                   <Button type="submit" disabled={saving} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600">

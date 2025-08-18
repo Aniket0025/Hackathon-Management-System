@@ -9,6 +9,14 @@ const eventSchema = new mongoose.Schema(
     location: { type: String },
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ['draft', 'upcoming', 'ongoing', 'completed'], default: 'draft' },
+    fees: { type: Number, default: 0 },
+    website: { type: String },
+    registrationDeadline: { type: Date },
+    participantType: { type: String, enum: ['individual', 'group'], default: 'individual' },
+    contactName: { type: String },
+    contactEmail: { type: String },
+    contactPhone: { type: String },
+    registrationLimit: { type: Number, min: 0 },
   },
   { timestamps: true }
 );
