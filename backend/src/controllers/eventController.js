@@ -2,7 +2,11 @@ const Event = require('../models/Event');
 
 async function listEvents(req, res, next) {
   try {
-    const events = await Event.find().sort({ createdAt: -1 }).populate('organizer', 'name');
+    const { status, organizer } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (organizer) filter.organizer = organizer;
+    const events = await Event.find(filter).sort({ createdAt: -1 }).populate('organizer', 'name');
     res.json({ events });
   } catch (err) {
     next(err);
@@ -11,7 +15,7 @@ async function listEvents(req, res, next) {
 
 async function getEvent(req, res, next) {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findById(req.params.id).populate('organizer', 'name email');
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json({ event });
   } catch (err) {

@@ -36,6 +36,7 @@ export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
   const [activeFeature, setActiveFeature] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [startHref, setStartHref] = useState<string>("/auth/register")
   const [stats, setStats] = useState({
     events: 0,
     participants: 0,
@@ -52,6 +53,22 @@ export default function HomePage() {
 
     checkMobile()
     window.addEventListener("resize", checkMobile)
+
+    // Compute target for Start CTA based on auth/role
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (token) {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => {
+            const role = data?.user?.role
+            if (role === "organizer") setStartHref("/events/create")
+            else if (role) setStartHref("/events")
+          })
+          .catch(() => {})
+      }
+    } catch {}
 
     // Animate counters
     const targets = { events: 2500, participants: 150000, projects: 45000, success: 98 }
@@ -167,7 +184,7 @@ export default function HomePage() {
               asChild
               className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 px-6 md:px-8 py-3 md:py-4 text-base md:text-lg min-h-[48px] touch-manipulation"
             >
-              <Link href="/auth/register" className="flex items-center justify-center gap-2">
+              <Link href={startHref} className="flex items-center justify-center gap-2">
                 <Rocket className="w-4 md:w-5 h-4 md:h-5" />
                 Start Your Event
                 <ArrowRight className="w-4 md:w-5 h-4 md:h-5" />
