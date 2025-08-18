@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, User } from "lucide-react"
+import { Calendar, MapPin, User, Star } from "lucide-react"
 
 type EventItem = {
   _id: string
@@ -34,23 +33,48 @@ export default function EventDetailsPage() {
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [topTeams, setTopTeams] = useState<Array<{ _id: string; name: string; score?: number }>>([])
+  const [teamsError, setTeamsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
+    const ctrl = new AbortController()
     const load = async () => {
       try {
         const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-        const res = await fetch(`${base}/api/events/${id}`)
+        const res = await fetch(`${base}/api/events/${id}`, { signal: ctrl.signal })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.message || "Failed to load event")
         setEvent(data.event)
       } catch (e: any) {
-        setError(e?.message || "Failed to load event")
+        if (e?.name !== 'AbortError') setError(e?.message || "Failed to load event")
       } finally {
         setLoading(false)
       }
     }
     load()
+    return () => ctrl.abort()
+  }, [id])
+
+  // Load top teams for this event
+  useEffect(() => {
+    if (!id) return
+    const ctrl = new AbortController()
+    const loadTeams = async () => {
+      try {
+        setTeamsError(null)
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const params = new URLSearchParams({ sort: "score_desc", limit: "5", eventId: String(id) })
+        const res = await fetch(`${base}/api/teams?${params.toString()}`, { signal: ctrl.signal })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || "Failed to load teams")
+        setTopTeams(Array.isArray(data?.teams) ? data.teams : [])
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') setTeamsError(e?.message || "Failed to load teams")
+      }
+    }
+    loadTeams()
+    return () => ctrl.abort()
   }, [id])
 
   const fmtDate = (iso: string) => {
@@ -59,11 +83,23 @@ export default function EventDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
-      <AdvancedNavigation currentPath={`/events/${id}`} />
+    <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         {loading ? (
-          <div className="text-slate-600">Loading…</div>
+          <Card className="max-w-3xl mx-auto border border-slate-200 shadow-sm">
+            <CardHeader>
+              <div className="h-6 w-48 bg-slate-200 rounded" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="h-4 w-full bg-slate-200 rounded" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                <div className="h-4 w-2/3 bg-slate-200 rounded" />
+                <div className="h-4 w-1/2 bg-slate-200 rounded md:col-span-2" />
+              </div>
+              <div className="h-10 w-32 bg-slate-200 rounded" />
+            </CardContent>
+          </Card>
         ) : error ? (
           <div className="text-red-600">{error}</div>
         ) : !event ? (
@@ -111,9 +147,37 @@ export default function EventDetailsPage() {
                 )}
               </div>
               <div className="pt-2">
-                <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600 transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                   <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
                 </Button>
+              </div>
+
+              {/* Team Performance subsection */}
+              <div className="pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500" />
+                    <h3 className="text-lg font-semibold">Team Performance</h3>
+                  </div>
+                  <Link className="text-sm text-cyan-700 hover:underline" href="/leaderboard">View full leaderboard</Link>
+                </div>
+                {teamsError ? (
+                  <div className="text-sm text-red-600">{teamsError}</div>
+                ) : topTeams.length === 0 ? (
+                  <div className="text-sm text-slate-600">No teams yet for this event.</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {topTeams.map((t) => (
+                      <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Star className="w-4 h-4 text-amber-500" />
+                          <span className="font-medium">{t.name}</span>
+                        </div>
+                        <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

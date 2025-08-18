@@ -3,12 +3,23 @@ const Event = require('../models/Event');
 
 async function listTeams(req, res, next) {
   try {
-    const { eventId, eventName, q } = req.query;
+    const { eventId, eventName, q, sort, limit } = req.query;
     const filter = {};
     if (eventId) filter.event = eventId;
     if (eventName) filter.eventName = eventName;
     if (q) filter.name = { $regex: q, $options: 'i' };
-    const teams = await Team.find(filter).populate('members', 'name');
+    let query = Team.find(filter).populate('members', 'name');
+    // Sorting
+    if (sort === 'score_desc') {
+      query = query.sort({ score: -1 });
+    } else if (sort === 'score_asc') {
+      query = query.sort({ score: 1 });
+    }
+    // Limiting
+    const lim = Math.min(parseInt(limit, 10) || 0, 100);
+    if (lim > 0) query = query.limit(lim);
+
+    const teams = await query;
     res.json({ teams });
   } catch (err) {
     next(err);

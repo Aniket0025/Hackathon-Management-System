@@ -28,8 +28,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE
   return (
     <html lang="en" suppressHydrationWarning className={`${geist.variable} ${manrope.variable} antialiased`}>
+      <head>
+        {apiBase ? (
+          <>
+            <link rel="dns-prefetch" href={apiBase} />
+            <link rel="preconnect" href={apiBase} crossOrigin="anonymous" />
+          </>
+        ) : null}
+      </head>
       <body className="font-sans">
         <AdvancedNavigation />
         <div className="pt-16 md:pt-20">{children}</div>
