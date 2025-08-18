@@ -3,10 +3,11 @@ const Event = require('../models/Event');
 
 async function listTeams(req, res, next) {
   try {
-    const { eventId, eventName } = req.query;
+    const { eventId, eventName, q } = req.query;
     const filter = {};
     if (eventId) filter.event = eventId;
     if (eventName) filter.eventName = eventName;
+    if (q) filter.name = { $regex: q, $options: 'i' };
     const teams = await Team.find(filter).populate('members', 'name');
     res.json({ teams });
   } catch (err) {

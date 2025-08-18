@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Users, Mail, Calendar } from "lucide-react"
+import { Users, Search } from "lucide-react"
 
 type MyRegistration = {
   _id: string
@@ -59,6 +59,13 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [regs, setRegs] = useState<MyRegistration[]>([])
+
+  // Team search state
+  type Team = { _id: string; name: string; eventName?: string; members?: Array<{ name?: string }> }
+  const [q, setQ] = useState("")
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [results, setResults] = useState<Team[]>([])
 
   // Load saved email and try to detect logged-in user
   useEffect(() => {
@@ -157,6 +164,26 @@ export default function TeamsPage() {
     return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
   }
 
+  const searchTeams = async () => {
+    setSearchError(null)
+    if (!q.trim()) {
+      setResults([])
+      return
+    }
+    try {
+      setSearching(true)
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const res = await fetch(`${base}/api/teams?q=${encodeURIComponent(q.trim())}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || 'Failed to search teams')
+      setResults(Array.isArray(data?.teams) ? data.teams : [])
+    } catch (e: any) {
+      setSearchError(e?.message || 'Failed to search teams')
+    } finally {
+      setSearching(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
       <AdvancedNavigation currentPath="/teams" />
@@ -174,6 +201,50 @@ export default function TeamsPage() {
         </div>
 
         <AITeamMatching />
+
+        {/* Team Search */}
+        <section className="mt-10">
+          <Card className="border-2 border-slate-100">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-slate-800">
+                <Search className="w-5 h-5 text-slate-600" />
+                Search Teams
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row gap-3">
+                <Input
+                  placeholder="Search by team name..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') searchTeams() }}
+                />
+                <Button onClick={searchTeams} disabled={searching}>
+                  {searching ? 'Searching...' : 'Search'}
+                </Button>
+              </div>
+              {searchError && (
+                <p className="text-red-600 text-sm mt-3">{searchError}</p>
+              )}
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {results.map((t) => (
+                  <Card key={t._id} className="hover:shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base font-semibold">{t.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-slate-600">{t.eventName || 'Event'}</p>
+                      <p className="text-xs text-slate-500 mt-1">Members: {t.members?.length ?? 0}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+                {!searching && q && results.length === 0 && !searchError && (
+                  <p className="text-slate-500 text-sm">No teams found.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       
       </main>
     </div>
