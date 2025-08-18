@@ -111,8 +111,8 @@ export default function EventDetailsPage() {
                 )}
               </div>
               <div className="pt-2">
-                <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600">
-                  <Link href={`/events/${event._id}/register`}>Register</Link>
+                <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600 transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                  <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
                 </Button>
               </div>
             </CardContent>

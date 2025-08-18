@@ -91,7 +91,7 @@ export default function EventsPage() {
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
             {events.map((ev) => (
-              <Card key={ev._id} className="hover:shadow-xl transition-all">
+              <Card key={ev._id} className="hover:shadow-xl transition-all duration-200 ease-out transform-gpu hover:-translate-y-0.5 [will-change:transform]">
                 <CardHeader>
                   <CardTitle className="text-xl">{ev.title}</CardTitle>
                   <CardDescription>
@@ -113,11 +113,11 @@ export default function EventsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex gap-3">
-                  <Button asChild size="sm" className="bg-gradient-to-r from-cyan-600 to-blue-600">
-                    <Link href={`/events/${ev._id}/register`}>Register</Link>
+                  <Button asChild size="sm" className="bg-gradient-to-r from-cyan-600 to-blue-600 transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                    <Link prefetch href={`/events/${ev._id}/register`}>Register</Link>
                   </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/events/${ev._id}`}>View Details</Link>
+                  <Button asChild size="sm" variant="outline" className="transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                    <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
                 </CardContent>
               </Card>
