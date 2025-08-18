@@ -10,6 +10,7 @@ const eventRoutes = require('./routes/events');
 const registrationRoutes = require('./routes/registrations');
 const teamRoutes = require('./routes/teams');
 const analyticsRoutes = require('./routes/analytics');
+const communityRoutes = require('./routes/community');
 const submissionRoutes = require('./routes/submissions');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -40,6 +41,7 @@ app.use('/api/registrations', registrationRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/community', communityRoutes);
 
 // 404 and error handler
 app.use(notFound);

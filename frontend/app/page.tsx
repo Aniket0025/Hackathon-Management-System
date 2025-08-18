@@ -251,22 +251,22 @@ export default function HomePage() {
               {advancedFeatures.map((feature, index) => (
                 <Card
                   key={index}
-                  className={`cursor-pointer transition-colors touch-manipulation ${
+                  className={`group cursor-pointer transition-all duration-300 touch-manipulation border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
                     activeFeature === index
-                      ? "ring-1 ring-cyan-500 bg-cyan-50"
-                      : ""
+                      ? "bg-white ring-1 ring-cyan-500"
+                      : "bg-white"
                   }`}
                   onClick={() => setActiveFeature(index)}
                 >
                   <CardHeader className="pb-3 p-4 md:p-6">
                     <div className="flex items-center gap-3 md:gap-4">
                       <div
-                        className={`w-10 md:w-12 h-10 md:h-12 rounded-xl bg-slate-900 flex items-center justify-center shadow-sm flex-shrink-0`}
+                        className={`w-10 md:w-12 h-10 md:h-12 rounded-xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform`}
                       >
                         <feature.icon className="w-5 md:w-6 h-5 md:h-6 text-white" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base md:text-lg font-bold text-slate-900 leading-tight">
+                        <CardTitle className="text-base md:text-lg font-bold text-slate-900 leading-tight group-hover:text-cyan-700">
                           {feature.title}
                         </CardTitle>
                         <CardDescription className="text-slate-600 text-sm md:text-base leading-relaxed">
@@ -280,12 +280,24 @@ export default function HomePage() {
             </div>
 
             <div className="relative mt-8 lg:mt-0">
-              <div className="w-full h-64 md:h-96 bg-slate-100 rounded-2xl shadow-md overflow-hidden">
-                <div className="relative h-full flex items-center justify-center">
-                  <div className="w-24 md:w-32 h-24 md:h-32 rounded-full bg-slate-900 flex items-center justify-center shadow-md">
+              <div className="w-full h-64 md:h-96 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl shadow-md overflow-hidden">
+                <div className="relative h-full flex flex-col items-center justify-center gap-4 md:gap-6 px-6 text-center">
+                  {/* soft glow */}
+                  <div className="absolute w-40 md:w-64 h-40 md:h-64 rounded-full bg-cyan-200/30 blur-3xl" />
+                  <div className={`relative w-24 md:w-32 h-24 md:h-32 rounded-full bg-gradient-to-r ${advancedFeatures[activeFeature].gradient} flex items-center justify-center shadow-lg`}> 
                     {React.createElement(advancedFeatures[activeFeature].icon, {
                       className: "w-12 md:w-16 h-12 md:h-16 text-white",
                     })}
+                    {/* subtle animated ring */}
+                    <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-white/30 animate-pulse" />
+                  </div>
+                  <div className="relative">
+                    <div className="text-lg md:text-2xl font-semibold text-slate-900">
+                      {advancedFeatures[activeFeature].title}
+                    </div>
+                    <div className="text-slate-600 text-sm md:text-base max-w-md md:max-w-lg">
+                      {advancedFeatures[activeFeature].description}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -4,6 +4,14 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Bell,
   Search,
   Settings,
@@ -27,7 +35,13 @@ interface NavigationProps {
 
 export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [notifications, setNotifications] = useState(3)
+  // simple demo notifications; replace with API later
+  const [notifItems, setNotifItems] = useState<{ id: string; title: string; time: string; read?: boolean }[]>([
+    { id: "1", title: "Your team was invited to Event X", time: "2m ago" },
+    { id: "2", title: "New comment on your community post", time: "15m ago" },
+    { id: "3", title: "Submission approved by judge", time: "1h ago" },
+  ])
+  const notifications = notifItems.filter((n) => !n.read).length
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthed, setIsAuthed] = useState(false)
 
@@ -70,6 +84,11 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
     { href: "/community", label: "Community", icon: MessageSquare },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ]
+
+  const markAllRead = () => {
+    setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
+  }
+  const clearAll = () => setNotifItems([])
 
   return (
     <header
@@ -121,14 +140,49 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
             </Button>
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative min-h-[40px] min-w-[40px] touch-manipulation">
-              <Bell className="w-4 h-4" />
-              {notifications > 0 && (
-                <Badge className="absolute -top-1 -right-1 w-4 md:w-5 h-4 md:h-5 p-0 flex items-center justify-center text-xs bg-gradient-to-r from-red-500 to-pink-500">
-                  {notifications}
-                </Badge>
-              )}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="relative min-h-[40px] min-w-[40px] touch-manipulation">
+                  <Bell className="w-4 h-4" />
+                  {notifications > 0 && (
+                    <Badge className="absolute -top-1 -right-1 w-4 md:w-5 h-4 md:h-5 p-0 flex items-center justify-center text-xs bg-gradient-to-r from-red-500 to-pink-500">
+                      {notifications}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifications</span>
+                  {notifItems.length > 0 ? (
+                    <button className="text-xs text-cyan-700 hover:underline" onClick={markAllRead}>
+                      Mark all read
+                    </button>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifItems.length === 0 ? (
+                  <div className="px-3 py-6 text-sm text-slate-500 text-center">You're all caught up!</div>
+                ) : (
+                  <div className="max-h-80 overflow-auto">
+                    {notifItems.map((n) => (
+                      <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5">
+                        <span className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.title}</span>
+                        <span className="text-xs text-slate-500">{n.time}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                )}
+                {notifItems.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="justify-center text-red-600" onClick={clearAll}>
+                      Clear all
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Auth Actions (Desktop) */}
             <div className="hidden md:flex items-center gap-2">

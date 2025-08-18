@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,6 +16,7 @@ type EventItem = {
   location?: string
   status: "draft" | "upcoming" | "ongoing" | "completed"
   organizer?: { _id: string; name: string }
+  registrationDeadline?: string
 }
 
 export default function EventsPage() {
@@ -60,12 +60,10 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
-      <AdvancedNavigation currentPath="/events" />
-
+    <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="text-center mb-10">
-          <Badge variant="secondary" className="bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700 mb-3">
+          <Badge variant="secondary" className="bg-cyan-100 text-cyan-700 mb-3">
             <Calendar className="w-4 h-4 mr-2" />
             Discover Events
           </Badge>
@@ -75,7 +73,7 @@ export default function EventsPage() {
           </p>
           {role === "organizer" && (
             <div className="mt-6 flex justify-center">
-              <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600">
+              <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                 <Link href="/events/create">
                   <Plus className="w-4 h-4 mr-2" />Create Event
                 </Link>
@@ -91,9 +89,16 @@ export default function EventsPage() {
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
             {events.map((ev) => (
-              <Card key={ev._id} className="hover:shadow-xl transition-all duration-200 ease-out transform-gpu hover:-translate-y-0.5 [will-change:transform]">
+              <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-xl">{ev.title}</CardTitle>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-xl">{ev.title}</CardTitle>
+                    {ev.registrationDeadline && (
+                      <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                        <Clock className="w-3.5 h-3.5" /> Reg: {fmtDate(ev.registrationDeadline)}
+                      </span>
+                    )}
+                  </div>
                   <CardDescription>
                     <div className="flex items-center gap-3 text-slate-600 flex-wrap">
                       <span className="flex items-center gap-1">
@@ -113,10 +118,10 @@ export default function EventsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex gap-3">
-                  <Button asChild size="sm" className="bg-gradient-to-r from-cyan-600 to-blue-600 transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                  <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                     <Link prefetch href={`/events/${ev._id}/register`}>Register</Link>
                   </Button>
-                  <Button asChild size="sm" variant="outline" className="transition-all duration-200 ease-out transform-gpu hover:scale-[1.02] active:scale-[0.98]">
+                  <Button asChild size="sm" variant="outline" className="transition-colors">
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
                 </CardContent>
