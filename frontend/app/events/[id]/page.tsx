@@ -182,12 +182,11 @@ export default function EventDetailsPage() {
 
               {/* Team Performance subsection */}
               <div className="pt-6">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center mb-3">
                   <div className="flex items-center gap-2">
                     <Star className="w-5 h-5 text-amber-500" />
                     <h3 className="text-lg font-semibold">Team Performance</h3>
                   </div>
-                  <Link className="text-sm text-cyan-700 hover:underline" href={`/leaderboard?eventId=${event._id}`}>View full leaderboard</Link>
                 </div>
                 {teamsError ? (
                   <div className="text-sm text-red-600">{teamsError}</div>

@@ -52,9 +52,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <SheetContent side="left" className="w-64 p-0">
           <div className="flex h-full flex-col">
             <div className="flex h-16 items-center gap-2 px-6 border-b">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
               <span className="text-xl font-bold text-foreground font-sans">HackHost</span>
             </div>
             <nav className="flex-1 space-y-1 px-4 py-4">
@@ -78,9 +76,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r bg-card px-6">
           <div className="flex h-16 shrink-0 items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
             <span className="text-xl font-bold text-foreground font-sans">HackHost</span>
           </div>
           <nav className="flex flex-1 flex-col">
