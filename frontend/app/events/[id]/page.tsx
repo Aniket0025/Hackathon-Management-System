@@ -25,6 +25,7 @@ type EventItem = {
   contactEmail?: string
   contactPhone?: string
   registrationLimit?: number
+  bannerUrl?: string
 }
 
 export default function EventDetailsPage() {
@@ -35,6 +36,7 @@ export default function EventDetailsPage() {
   const [error, setError] = useState<string | null>(null)
   const [topTeams, setTopTeams] = useState<Array<{ _id: string; name: string; score?: number }>>([])
   const [teamsError, setTeamsError] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -55,6 +57,25 @@ export default function EventDetailsPage() {
     load()
     return () => ctrl.abort()
   }, [id])
+
+  // Load current user role (to hide Register for organizers)
+  useEffect(() => {
+    const loadRole = async () => {
+      try {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) return
+        const meRes = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (meRes.ok) {
+          const me = await meRes.json().catch(() => ({}))
+          setRole(me?.user?.role || null)
+        }
+      } catch {
+        // ignore errors
+      }
+    }
+    loadRole()
+  }, [])
 
   // Load top teams for this event
   useEffect(() => {
@@ -107,6 +128,11 @@ export default function EventDetailsPage() {
         ) : (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
+              {event.bannerUrl && (
+                <div className="-mx-6 -mt-6 mb-4">
+                  <img src={event.bannerUrl} alt={event.title} className="w-full h-56 object-cover rounded-t-md" />
+                </div>
+              )}
               <div className="flex items-center justify-between gap-4">
                 <CardTitle className="text-2xl">{event.title}</CardTitle>
                 <Badge variant="outline">{event.status}</Badge>
@@ -147,9 +173,11 @@ export default function EventDetailsPage() {
                 )}
               </div>
               <div className="pt-2">
-                <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                  <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
-                </Button>
+                {role !== 'organizer' && (
+                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+                    <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
+                  </Button>
+                )}
               </div>
 
               {/* Team Performance subsection */}
@@ -159,7 +187,7 @@ export default function EventDetailsPage() {
                     <Star className="w-5 h-5 text-amber-500" />
                     <h3 className="text-lg font-semibold">Team Performance</h3>
                   </div>
-                  <Link className="text-sm text-cyan-700 hover:underline" href="/leaderboard">View full leaderboard</Link>
+                  <Link className="text-sm text-cyan-700 hover:underline" href={`/leaderboard?eventId=${event._id}`}>View full leaderboard</Link>
                 </div>
                 {teamsError ? (
                   <div className="text-sm text-red-600">{teamsError}</div>

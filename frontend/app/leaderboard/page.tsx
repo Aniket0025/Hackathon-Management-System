@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Star } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSearchParams } from "next/navigation"
 
 type Team = { _id: string; name: string; score?: number; eventName?: string }
 type EventItem = { _id: string; title: string }
@@ -16,6 +17,14 @@ export default function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [events, setEvents] = useState<EventItem[]>([])
   const [eventId, setEventId] = useState<string>("all")
+  const searchParams = useSearchParams()
+
+  // Initialize event filter from URL query (?eventId=...)
+  useEffect(() => {
+    const id = searchParams.get("eventId")
+    if (id) setEventId(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const load = async () => {

@@ -17,6 +17,7 @@ type EventItem = {
   status: "draft" | "upcoming" | "ongoing" | "completed"
   organizer?: { _id: string; name: string }
   registrationDeadline?: string
+  bannerUrl?: string
 }
 
 export default function EventsPage() {
@@ -91,6 +92,16 @@ export default function EventsPage() {
             {events.map((ev) => (
               <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader>
+                  {ev.bannerUrl && (
+                    <div className="-mx-6 -mt-6 mb-3">
+                      <img
+                        src={ev.bannerUrl}
+                        alt={ev.title}
+                        className="w-full h-40 object-cover rounded-t-md"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle className="text-xl">{ev.title}</CardTitle>
                     {ev.registrationDeadline && (
@@ -118,11 +129,16 @@ export default function EventsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex gap-3">
-                  <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                    <Link prefetch href={`/events/${ev._id}/register`}>Register</Link>
-                  </Button>
+                  {role !== "organizer" && (
+                    <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+                      <Link prefetch href={`/events/${ev._id}/register`}>Register</Link>
+                    </Button>
+                  )}
                   <Button asChild size="sm" variant="outline" className="transition-colors">
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="secondary" className="transition-colors">
+                    <Link prefetch href={`/leaderboard?eventId=${ev._id}`}>Leaderboard</Link>
                   </Button>
                 </CardContent>
               </Card>

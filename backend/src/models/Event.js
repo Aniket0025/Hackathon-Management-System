@@ -17,6 +17,7 @@ const eventSchema = new mongoose.Schema(
     contactEmail: { type: String },
     contactPhone: { type: String },
     registrationLimit: { type: Number, min: 0 },
+    bannerUrl: { type: String },
   },
   { timestamps: true }
 );

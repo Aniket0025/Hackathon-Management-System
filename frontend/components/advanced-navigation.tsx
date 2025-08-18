@@ -106,12 +106,6 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
             <span className="text-xl md:text-2xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
               HackHost
             </span>
-            <Badge
-              variant="secondary"
-              className="ml-1 md:ml-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 hidden sm:inline-flex text-xs px-2 py-1"
-            >
-              AI-Powered
-            </Badge>
           </Link>
 
           {/* Desktop Navigation */}
@@ -134,11 +128,6 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Search */}
-            <Button variant="ghost" size="sm" className="hidden md:flex min-h-[40px] min-w-[40px] touch-manipulation">
-              <Search className="w-4 h-4" />
-            </Button>
-
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -32,6 +32,7 @@ export default function CreateEventPage() {
     contactEmail: "",
     contactPhone: "",
     registrationLimit: "",
+    bannerUrl: "",
   })
 
   useEffect(() => {
@@ -118,6 +119,7 @@ export default function CreateEventPage() {
           contactEmail: form.contactEmail || undefined,
           contactPhone: form.contactPhone || undefined,
           registrationLimit: form.registrationLimit !== "" ? Number(form.registrationLimit) : undefined,
+          bannerUrl: form.bannerUrl || undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -179,6 +181,11 @@ export default function CreateEventPage() {
                     <Label htmlFor="website">Official Website</Label>
                     <Input id="website" type="url" placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bannerUrl">Banner Image URL</Label>
+                  <Input id="bannerUrl" type="url" placeholder="https://example.com/banner.jpg" value={form.bannerUrl} onChange={(e) => update("bannerUrl", e.target.value)} />
+                  <p className="text-xs text-slate-500">Provide a public image URL. Upload support can be added later.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="registrationDeadline">Registration Deadline</Label>
