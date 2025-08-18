@@ -8,6 +8,23 @@ async function listTeams(req, res, next) {
     if (eventId) filter.event = eventId;
     if (eventName) filter.eventName = eventName;
     if (q) filter.name = { $regex: q, $options: 'i' };
+
+    // If user is an organizer, restrict to teams of their own events
+    if (req.user && req.user.role === 'organizer') {
+      const organizerEventIds = await Event.find({ organizer: req.user.id }).distinct('_id');
+      if (filter.event) {
+        // If a specific event is requested, ensure it belongs to the organizer
+        const requestedId = filter.event.toString();
+        const ownsRequested = organizerEventIds.some((id) => id.toString() === requestedId);
+        if (!ownsRequested) {
+          return res.json({ teams: [] });
+        }
+        // keep filter.event as-is
+      } else {
+        filter.event = { $in: organizerEventIds };
+      }
+    }
+
     let query = Team.find(filter).populate('members', 'name');
     // Sorting
     if (sort === 'score_desc') {

@@ -23,25 +23,47 @@ type EventItem = {
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([])
   const [role, setRole] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [view, setView] = useState<'all' | 'mine'>('all')
+  const [initialized, setInitialized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Load current user info (role, id)
   useEffect(() => {
-    const load = async () => {
+    const loadMe = async () => {
       try {
         const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-        // fetch role if logged in
         if (token) {
           const meRes = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
           if (meRes.ok) {
             const me = await meRes.json()
-            setRole(me?.user?.role || null)
+            const r = me?.user?.role || null
+            const id = me?.user?._id || null
+            setRole(r)
+            setUserId(id)
+            if (r === 'organizer') setView('mine')
           }
         }
+      } catch {
+        // ignore
+      } finally {
+        setInitialized(true)
+      }
+    }
+    loadMe()
+  }, [])
 
-        // Fetch all events for everyone (participants, judges, organizers)
-        const evRes = await fetch(`${base}/api/events`)
+  // Load events based on selected view
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const query = view === 'mine' && userId ? `?organizer=${encodeURIComponent(userId)}` : ''
+        const evRes = await fetch(`${base}/api/events${query}`)
         if (!evRes.ok) throw new Error(`Failed to load events (${evRes.status})`)
         const data = await evRes.json()
         setEvents(data?.events || [])
@@ -51,9 +73,10 @@ export default function EventsPage() {
         setLoading(false)
       }
     }
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!initialized) return // wait for user info determination
+    if (view === 'mine' && !userId) return // wait for userId when organizer view
+    loadEvents()
+  }, [view, userId, initialized])
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
@@ -73,7 +96,7 @@ export default function EventsPage() {
             All events are visible to participants and judges. Organizers can also create new events.
           </p>
           {role === "organizer" && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col items-center gap-3">
               <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                 <Link href="/events/create">
                   <Plus className="w-4 h-4 mr-2" />Create Event
