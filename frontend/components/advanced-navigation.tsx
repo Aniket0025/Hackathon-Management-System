@@ -65,6 +65,7 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
     { href: "/", label: "Home", icon: Home },
     { href: "/events", label: "Events", icon: Calendar },
     { href: "/teams", label: "Teams", icon: Users },
+    { href: "/my-apply", label: "My Apply", icon: Users },
     { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { href: "/community", label: "Community", icon: MessageSquare },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },

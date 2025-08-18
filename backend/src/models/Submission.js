@@ -7,6 +7,8 @@ const submissionSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String },
     repoUrl: { type: String },
+    docsUrl: { type: String },
+    videoUrl: { type: String },
     score: { type: Number, default: 0 },
     status: { type: String, enum: ['draft', 'submitted', 'reviewed'], default: 'draft' },
   },
