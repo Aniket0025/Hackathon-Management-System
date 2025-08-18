@@ -49,4 +49,29 @@ async function registerForEvent(req, res, next) {
   }
 }
 
-module.exports = { registerForEvent };
+async function listMyRegistrations(req, res, next) {
+  try {
+    const email = (req.query.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'email query param is required' });
+    const full = (req.query.full || '').toString().toLowerCase() === 'true';
+
+    let query = Registration.find({ 'personalInfo.email': email }).sort({ createdAt: -1 });
+    if (!full) {
+      query = query.select({
+        event: 1,
+        eventName: 1,
+        registrationType: 1,
+        teamInfo: 1,
+        createdAt: 1,
+        _id: 1,
+      });
+    }
+    const regs = await query.lean();
+
+    res.json({ registrations: regs });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { registerForEvent, listMyRegistrations };

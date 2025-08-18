@@ -7,7 +7,9 @@ const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
+const registrationRoutes = require('./routes/registrations');
 const teamRoutes = require('./routes/teams');
+const analyticsRoutes = require('./routes/analytics');
 const submissionRoutes = require('./routes/submissions');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -34,8 +36,10 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/registrations', registrationRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 and error handler
 app.use(notFound);

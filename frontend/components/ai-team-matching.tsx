@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,9 +19,34 @@ import {
   CheckCircle,
 } from "lucide-react"
 
+type SkillCategory = { key: string; name: string; count: number }
+type MatchResults = {
+  compatibility: number
+  skillBalance: number
+  experienceLevel: number
+  communicationStyle: number
+}
+type SuggestionMember = { name: string; role: string; avatar?: string | null; skills: string[] }
+type Suggestion = {
+  id: string
+  name: string
+  eventName?: string
+  leaderName?: string | null
+  compatibility: number
+  members: SuggestionMember[]
+  strengths: string[]
+  projectFit?: string
+}
+
 export default function AITeamMatching() {
   const [isMatching, setIsMatching] = useState(false)
-  const [matchResults, setMatchResults] = useState(null)
+  const [matchResults, setMatchResults] = useState<MatchResults | null>(null)
+  const [categories, setCategories] = useState<SkillCategory[]>([])
+  const [catLoading, setCatLoading] = useState(false)
+  const [catError, setCatError] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [sugLoading, setSugLoading] = useState(false)
+  const [sugError, setSugError] = useState<string | null>(null)
 
   const handleAIMatching = () => {
     setIsMatching(true)
@@ -36,75 +61,64 @@ export default function AITeamMatching() {
     }, 3000)
   }
 
-  const skillCategories = [
-    { icon: Code, name: "Frontend", color: "bg-blue-500", participants: 45 },
-    { icon: Database, name: "Backend", color: "bg-green-500", participants: 38 },
-    { icon: Palette, name: "Design", color: "bg-purple-500", participants: 22 },
-    { icon: Smartphone, name: "Mobile", color: "bg-orange-500", participants: 31 },
-  ]
+  // Fetch dynamic skill distribution
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setCatError(null)
+        setCatLoading(true)
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/analytics/skills`)
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || "Failed to load skills")
+        setCategories(Array.isArray(data?.categories) ? data.categories : [])
+      } catch (e: any) {
+        setCatError(e?.message || "Failed to load skills")
+      } finally {
+        setCatLoading(false)
+      }
+    }
+    run()
+  }, [])
 
-  const suggestedTeams = [
-    {
-      id: 1,
-      name: "AI Innovators",
-      compatibility: 96,
-      members: [
-        {
-          name: "Sarah Chen",
-          role: "Full-Stack Dev",
-          avatar: "/diverse-professional-team.png",
-          skills: ["React", "Node.js", "AI/ML"],
-        },
-        {
-          name: "Marcus Johnson",
-          role: "UI/UX Designer",
-          avatar: "/ai-team.png",
-          skills: ["Figma", "Prototyping", "User Research"],
-        },
-        {
-          name: "Elena Rodriguez",
-          role: "Data Scientist",
-          avatar: "/web-team-collaboration.png",
-          skills: ["Python", "TensorFlow", "Analytics"],
-        },
-        {
-          name: "David Kim",
-          role: "Mobile Dev",
-          avatar: "/interconnected-system.png",
-          skills: ["React Native", "iOS", "Android"],
-        },
-      ],
-      strengths: ["Balanced skill set", "High collaboration score", "Complementary experience levels"],
-      projectFit: "Perfect for AI/ML and mobile app challenges",
-    },
-    {
-      id: 2,
-      name: "Code Warriors",
-      compatibility: 91,
-      members: [
-        {
-          name: "Alex Thompson",
-          role: "Backend Dev",
-          avatar: "/desk-organizer.png",
-          skills: ["Python", "PostgreSQL", "AWS"],
-        },
-        {
-          name: "Maya Patel",
-          role: "Frontend Dev",
-          avatar: "/abstract-geometric-shapes.png",
-          skills: ["Vue.js", "TypeScript", "CSS"],
-        },
-        {
-          name: "Jordan Lee",
-          role: "DevOps",
-          avatar: "/diverse-professional-team.png",
-          skills: ["Docker", "Kubernetes", "CI/CD"],
-        },
-      ],
-      strengths: ["Strong technical foundation", "Fast execution", "Proven track record"],
-      projectFit: "Ideal for web applications and infrastructure challenges",
-    },
-  ]
+  // Fetch dynamic team suggestions
+  useEffect(() => {
+    const run = async () => {
+      try {
+        setSugError(null)
+        setSugLoading(true)
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/analytics/suggestions`)
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || "Failed to load suggestions")
+        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : [])
+      } catch (e: any) {
+        setSugError(e?.message || "Failed to load suggestions")
+      } finally {
+        setSugLoading(false)
+      }
+    }
+    run()
+  }, [])
+
+  const mappedCategories = useMemo(() => {
+    // Map backend keys to icons/colors
+    const iconByKey: Record<string, any> = { frontend: Code, backend: Database, design: Palette, mobile: Smartphone }
+    const colorByKey: Record<string, string> = { frontend: "bg-blue-500", backend: "bg-green-500", design: "bg-purple-500", mobile: "bg-orange-500" }
+    return (categories && categories.length > 0
+      ? categories
+      : [
+          { key: "frontend", name: "Frontend", count: 0 },
+          { key: "backend", name: "Backend", count: 0 },
+          { key: "design", name: "Design", count: 0 },
+          { key: "mobile", name: "Mobile", count: 0 },
+        ]
+    ).map((c) => ({ ...c, icon: iconByKey[c.key] || Code, color: colorByKey[c.key] || "bg-slate-400" }))
+  }, [categories])
+
+  const [visibleCount, setVisibleCount] = useState<number>(3)
+  const suggestedTeams = suggestions
+  const visibleTeams = suggestedTeams.slice(0, Math.max(0, visibleCount))
 
   return (
     <div className="space-y-8">
@@ -161,16 +175,17 @@ export default function AITeamMatching() {
           <CardDescription>Real-time analysis of available skills and expertise levels</CardDescription>
         </CardHeader>
         <CardContent>
+          {catError && (
+            <div className="text-sm text-red-600 border border-red-200 rounded p-2 bg-red-50">{catError}</div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {skillCategories.map((skill, index) => (
+            {mappedCategories.map((skill, index) => (
               <div key={index} className="text-center">
-                <div
-                  className={`w-16 h-16 ${skill.color} rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg`}
-                >
+                <div className={`w-16 h-16 ${skill.color} rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg`}>
                   <skill.icon className="w-8 h-8 text-white" />
                 </div>
                 <h4 className="font-semibold text-slate-900">{skill.name}</h4>
-                <p className="text-2xl font-bold text-slate-700">{skill.participants}</p>
+                <p className="text-2xl font-bold text-slate-700">{catLoading ? "…" : skill.count}</p>
                 <p className="text-sm text-slate-500">participants</p>
               </div>
             ))}
@@ -218,7 +233,7 @@ export default function AITeamMatching() {
       {/* Suggested Teams */}
       <div className="space-y-6">
         <h3 className="text-2xl font-bold text-slate-900">AI-Generated Team Suggestions</h3>
-        {suggestedTeams.map((team) => (
+        {visibleTeams.map((team) => (
           <Card key={team.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -230,7 +245,12 @@ export default function AITeamMatching() {
                       {team.compatibility}% match
                     </Badge>
                   </CardTitle>
-                  <CardDescription>{team.projectFit}</CardDescription>
+                  <CardDescription>
+                    {team.leaderName && (
+                      <span className="mr-3"><span className="font-medium">Leader:</span> {team.leaderName}</span>
+                    )}
+                    {team.projectFit}
+                  </CardDescription>
                 </div>
                 <Button className="bg-gradient-to-r from-cyan-600 to-blue-600">Form Team</Button>
               </div>
@@ -240,14 +260,14 @@ export default function AITeamMatching() {
                 <div>
                   <h4 className="font-semibold text-slate-900 mb-3">Team Members</h4>
                   <div className="space-y-3">
-                    {team.members.map((member, index) => (
+                    {team.members.map((member: SuggestionMember, index: number) => (
                       <div key={index} className="flex items-center gap-3">
                         <Avatar className="w-10 h-10">
-                          <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>
+                          {member.avatar ? <AvatarImage src={member.avatar} /> : null}
+                          <AvatarFallback className="bg-slate-200 text-slate-700">
                             {member.name
                               .split(" ")
-                              .map((n) => n[0])
+                              .map((n: string) => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>
@@ -256,7 +276,7 @@ export default function AITeamMatching() {
                           <p className="text-sm text-slate-600">{member.role}</p>
                         </div>
                         <div className="flex gap-1">
-                          {member.skills.slice(0, 2).map((skill, skillIndex) => (
+                          {(member.skills || []).slice(0, 2).map((skill: string, skillIndex: number) => (
                             <Badge key={skillIndex} variant="outline" className="text-xs">
                               {skill}
                             </Badge>
@@ -270,7 +290,7 @@ export default function AITeamMatching() {
                 <div>
                   <h4 className="font-semibold text-slate-900 mb-3">Team Strengths</h4>
                   <div className="space-y-2">
-                    {team.strengths.map((strength, index) => (
+                    {team.strengths.map((strength: string, index: number) => (
                       <div key={index} className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-green-500" />
                         <span className="text-sm text-slate-700">{strength}</span>
@@ -282,6 +302,14 @@ export default function AITeamMatching() {
             </CardContent>
           </Card>
         ))}
+        <div className="flex justify-center gap-3 pt-2">
+          {visibleCount < suggestedTeams.length && (
+            <Button variant="outline" onClick={() => setVisibleCount((c) => c + 3)}>Show more</Button>
+          )}
+          {visibleCount > 3 && (
+            <Button variant="ghost" onClick={() => setVisibleCount(3)}>Show less</Button>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -48,6 +48,7 @@ interface RegistrationData {
     differentlyAbled: "no" | "yes" | ""
     location: string
   }
+
   teamInfo: {
     teamName: string
     teamDescription: string
@@ -207,6 +208,94 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
       ...prev,
       teamInfo: { ...prev.teamInfo, members: prev.teamInfo.members.filter((_, i) => i !== index) },
     }))
+  }
+
+  // Copy Personal Information into a team member (used for Member 1 shortcut)
+  const copyPersonalToMember = (memberIndex: number) => {
+    setRegistrationData((prev) => {
+      const p = prev.personalInfo
+      const next = [...prev.teamInfo.members]
+      if (!next[memberIndex]) {
+        next[memberIndex] = {
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          gender: "",
+          instituteName: "",
+          type: "",
+          domain: "",
+          bio: "",
+          graduatingYear: "",
+          courseDuration: "",
+          differentlyAbled: "",
+          location: "",
+        }
+      }
+      next[memberIndex] = {
+        ...next[memberIndex],
+        firstName: p.firstName || "",
+        lastName: p.lastName || "",
+        email: p.email || "",
+        phone: p.phone || "",
+        gender: p.gender || "",
+        instituteName: p.instituteName || "",
+        type: p.type || "",
+        domain: p.domain || "",
+        bio: p.bio || "",
+        graduatingYear: p.graduatingYear || "",
+        courseDuration: p.courseDuration || "",
+        differentlyAbled: p.differentlyAbled || "",
+        location: p.location || "",
+      }
+      return { ...prev, teamInfo: { ...prev.teamInfo, members: next } }
+    })
+  }
+
+  // Quick action: if no members, add Member 1 as the registrant
+  const addMeAsMember1 = () => {
+    setRegistrationData((prev) => {
+      let nextMembers = prev.teamInfo.members
+      if (nextMembers.length === 0) {
+        nextMembers = [
+          {
+            firstName: "",
+            lastName: "",
+            email: "",
+            phone: "",
+            gender: "",
+            instituteName: "",
+            type: "",
+            domain: "",
+            bio: "",
+            graduatingYear: "",
+            courseDuration: "",
+            differentlyAbled: "",
+            location: "",
+          },
+        ]
+      } else {
+        nextMembers = [...nextMembers]
+      }
+      const p = prev.personalInfo
+      nextMembers[0] = {
+        ...nextMembers[0],
+        firstName: p.firstName || "",
+        lastName: p.lastName || "",
+        email: p.email || "",
+        phone: p.phone || "",
+        gender: p.gender || "",
+        instituteName: p.instituteName || "",
+        type: p.type || "",
+        domain: p.domain || "",
+        bio: p.bio || "",
+        graduatingYear: p.graduatingYear || "",
+        courseDuration: p.courseDuration || "",
+        differentlyAbled: p.differentlyAbled || "",
+        location: p.location || "",
+      }
+      return { ...prev, teamInfo: { ...prev.teamInfo, members: nextMembers } }
+    })
   }
 
   const updatePreferences = (field: string, value: string) => {
@@ -654,7 +743,12 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="font-serif">Team Members</Label>
-                    <Button type="button" onClick={addMember} variant="secondary">Add Member</Button>
+                    <div className="flex gap-2">
+                      {registrationData.teamInfo.members.length === 0 && (
+                        <Button type="button" onClick={addMeAsMember1} variant="outline">Add Me as Member 1</Button>
+                      )}
+                      <Button type="button" onClick={addMember} variant="secondary">Add Member</Button>
+                    </div>
                   </div>
                   {registrationData.teamInfo.members.length === 0 && (
                     <div className="text-sm text-muted-foreground">Add members and fill their details.</div>
@@ -662,7 +756,14 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                   {registrationData.teamInfo.members.map((m, idx) => (
                     <Card key={idx} className="border-dashed">
                       <CardHeader>
-                        <CardTitle className="text-base font-sans">Member {idx + 1}</CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base font-sans">Member {idx + 1}</CardTitle>
+                          {idx === 0 && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => copyPersonalToMember(0)}>
+                              Copy from Personal Information
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
