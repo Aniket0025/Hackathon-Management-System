@@ -1,4 +1,5 @@
 const Event = require('../models/Event');
+const { uploadBuffer } = require('../utils/cloudinary');
 
 async function listEvents(req, res, next) {
   try {
@@ -34,6 +35,14 @@ async function getEvent(req, res, next) {
 async function createEvent(req, res, next) {
   try {
     const data = { ...req.body, organizer: req.user.id };
+
+    // If a banner image was sent, upload to Cloudinary and store its URL
+    if (req.file) {
+      const folder = `events/${req.user.id}/banners`;
+      const uploadResult = await uploadBuffer(req.file.buffer, folder);
+      data.bannerUrl = uploadResult.secure_url;
+    }
+
     const event = await Event.create(data);
     res.status(201).json({ event });
   } catch (err) {
@@ -43,7 +52,15 @@ async function createEvent(req, res, next) {
 
 async function updateEvent(req, res, next) {
   try {
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const data = { ...req.body };
+
+    if (req.file) {
+      const folder = `events/${req.user ? req.user.id : 'unknown'}/banners`;
+      const uploadResult = await uploadBuffer(req.file.buffer, folder);
+      data.bannerUrl = uploadResult.secure_url;
+    }
+
+    const event = await Event.findByIdAndUpdate(req.params.id, data, { new: true });
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json({ event });
   } catch (err) {
