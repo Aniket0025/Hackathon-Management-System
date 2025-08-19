@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Calendar, Plus, MapPin, Clock } from "lucide-react"
-import { formatDate, formatDateRange } from "@/lib/date"
+import { Calendar, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 type EventItem = {
@@ -20,6 +19,12 @@ type EventItem = {
   organizer?: { _id: string; name: string }
   registrationDeadline?: string
   bannerUrl?: string
+  // Added to support card requirements
+  mode?: "online" | "onsite" | "hybrid"
+  fees?: number
+  participantType?: "individual" | "group"
+  minTeamSize?: number
+  maxTeamSize?: number
 }
 
 export default function EventsPage() {
@@ -183,42 +188,43 @@ export default function EventsPage() {
             {filteredEvents.length > 0 && filteredEvents.map((ev) => (
                 <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                   <CardHeader>
-                    {ev.bannerUrl && (
-                      <div className="-mx-6 -mt-6 mb-3">
-                        <img
-                          src={ev.bannerUrl}
-                          alt={ev.title}
-                          className="w-full h-40 object-cover rounded-t-md"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between gap-3">
-                      <CardTitle className="text-xl">{ev.title}</CardTitle>
-                      {ev.registrationDeadline && (() => {
-                        const d = daysRemaining(ev.registrationDeadline)
-                        if (d === null) return null
-                        if (d < 0) return <span className="text-red-600 font-semibold">Closed</span>
-                        return <span className="text-xs font-semibold blink-red-black">{d} days left</span>
-                      })()}
+                  {ev.bannerUrl && (
+                    <div className="-mx-6 -mt-6 mb-3">
+                      <img
+                        src={ev.bannerUrl}
+                        alt={ev.title}
+                        className="w-full h-40 object-cover rounded-t-md"
+                        loading="lazy"
+                      />
                     </div>
-                  <CardDescription>
-                    <div className="flex items-center gap-3 text-slate-600 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {formatDateRange(ev.startDate, ev.endDate)}
-                      </span>
-                      {ev.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {ev.location}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Badge variant="outline">{computeStatus(ev)}</Badge>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-xl">{ev.title}</CardTitle>
+                    {ev.registrationDeadline && (() => {
+                      const d = daysRemaining(ev.registrationDeadline)
+                      if (d === null) return null
+                      if (d < 0) return <span className="text-red-600 font-semibold">Closed</span>
+                      return <span className="text-xs font-semibold blink-red-black">{d} days left</span>
+                    })()}
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-slate-700">
+                    <div>
+                      <span className="font-medium">Mode: </span>
+                      <span>{ev.mode ? (ev.mode === 'online' ? 'Online' : ev.mode === 'onsite' ? 'Onsite' : 'Hybrid') : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Fees: </span>
+                      <span>{typeof ev.fees === 'number' ? (ev.fees === 0 ? 'Free' : ev.fees) : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Team Size: </span>
+                      <span>
+                        {ev.participantType === 'group' && typeof ev.minTeamSize === 'number' && typeof ev.maxTeamSize === 'number'
+                          ? `${ev.minTeamSize} - ${ev.maxTeamSize}`
+                          : 'Individual'}
                       </span>
                     </div>
-                  </CardDescription>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex gap-3">
                   {role !== "organizer" && (

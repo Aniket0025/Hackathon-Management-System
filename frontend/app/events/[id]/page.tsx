@@ -23,6 +23,7 @@ type EventItem = {
   website?: string
   registrationDeadline?: string
   participantType?: "individual" | "group"
+  mode?: "online" | "onsite" | "hybrid"
   contactName?: string
   contactEmail?: string
   contactPhone?: string
@@ -230,6 +231,9 @@ export default function EventDetailsPage() {
                 {event.organizer && (
                   <div className="flex items-center gap-2 md:col-span-2"><User className="w-4 h-4" /> Organized by {event.organizer.name}{event.organizer.email ? ` (${event.organizer.email})` : ""}</div>
                 )}
+                {event.mode && (
+                  <div className="md:col-span-1">Mode: {event.mode === 'online' ? 'Online' : event.mode === 'onsite' ? 'Onsite' : 'Hybrid'}</div>
+                )}
                 {typeof event.fees === "number" && (
                   <div className="md:col-span-1">Fees: {event.fees === 0 ? "Free" : event.fees}</div>
                 )}
@@ -240,7 +244,7 @@ export default function EventDetailsPage() {
                   <div className="md:col-span-1">Participant Type: {event.participantType === "individual" ? "Individual" : "Group"}</div>
                 )}
                 {event.participantType === "group" && typeof event.minTeamSize === "number" && typeof event.maxTeamSize === "number" && (
-                  <div className="md:col-span-1">Team Size: {event.minTeamSize} - {event.maxTeamSize} members</div>
+                  <div className="md:col-span-1">Team Size: {event.minTeamSize} - {event.maxTeamSize}</div>
                 )}
                 {typeof event.registrationLimit === "number" && (
                   <div className="md:col-span-1">Registration Limit: {event.registrationLimit}</div>
