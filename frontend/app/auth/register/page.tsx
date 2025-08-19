@@ -27,6 +27,67 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  // OTP state
+  const [otp, setOtp] = useState("")
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [verificationToken, setVerificationToken] = useState<string | null>(null)
+
+  // API base
+  const baseApi = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  // Send OTP
+  const handleSendOtp = async () => {
+    setError(null)
+    setSuccess(null)
+    if (!formData.email) {
+      setError("Enter your email first")
+      return
+    }
+    try {
+      setOtpLoading(true)
+      const res = await fetch(`${baseApi}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || "Failed to send OTP")
+      setOtpSent(true)
+      setSuccess("OTP sent to your email")
+    } catch (e: any) {
+      setError(e?.message || "Failed to send OTP")
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  // Verify OTP
+  const handleVerifyOtp = async () => {
+    setError(null)
+    setSuccess(null)
+    if (!formData.email || !otp) {
+      setError("Enter your email and OTP")
+      return
+    }
+    try {
+      setOtpLoading(true)
+      const res = await fetch(`${baseApi}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, otp }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || "Failed to verify OTP")
+      setVerificationToken(data?.verificationToken || null)
+      setSuccess("Email verified. You can now create your account.")
+    } catch (e: any) {
+      setVerificationToken(null)
+      setError(e?.message || "Failed to verify OTP")
+    } finally {
+      setOtpLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,6 +121,7 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          verificationToken: verificationToken,
         }),
       })
 
@@ -217,6 +279,35 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* OTP Section */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="secondary" onClick={handleSendOtp} disabled={otpLoading || !formData.email || !!verificationToken}>
+                    {otpLoading ? "Sending..." : (otpSent ? "Resend OTP" : "Send OTP")}
+                  </Button>
+                  {verificationToken && (
+                    <span className="text-xs text-green-700">Verified</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Enter 6-digit OTP"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="font-serif"
+                  />
+                  <Button type="button" onClick={handleVerifyOtp} disabled={otpLoading || !otp || !!verificationToken}>
+                    {otpLoading ? "Verifying..." : "Verify"}
+                  </Button>
+                </div>
+                {!verificationToken && (
+                  <p className="text-xs text-muted-foreground">Verify your email with the OTP before creating an account.</p>
+                )}
+              </div>
+
               
 
               <div className="space-y-2">
@@ -273,8 +364,8 @@ export default function RegisterPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full font-serif" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create Account"}
+              <Button type="submit" className="w-full font-serif" disabled={isLoading || !verificationToken}>
+                {isLoading ? "Creating account..." : (verificationToken ? "Create Account" : "Verify Email to Continue")}
               </Button>
             </form>
 

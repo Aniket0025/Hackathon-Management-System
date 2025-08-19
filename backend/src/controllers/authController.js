@@ -1,14 +1,29 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const jwt = require('jsonwebtoken');
+const EmailVerification = require('../models/EmailVerification');
+const { sendMail } = require('../utils/mailer');
+const nodemailer = require('nodemailer');
 
 async function register(req, res, next) {
   try {
-    const { name, email, password, role, organization } = req.body;
+    const { name, email, password, role, organization, verificationToken } = req.body;
     if (!name || !email || !password) return res.status(400).json({ message: 'Missing required fields' });
 
     const exists = await User.findOne({ email });
     if (exists) return res.status(409).json({ message: 'Email already in use' });
+
+    // Require verified email via verificationToken
+    if (!verificationToken) return res.status(400).json({ message: 'Email not verified. Provide verificationToken from OTP verification.' });
+    try {
+      const payload = jwt.verify(verificationToken, process.env.JWT_SECRET);
+      if (payload.purpose !== 'email_verification' || payload.email !== email) {
+        return res.status(400).json({ message: 'Invalid verification token' });
+      }
+    } catch (e) {
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, password: hash, role, organization });
@@ -75,3 +90,86 @@ async function updateMe(req, res, next) {
 }
 
 module.exports = { register, login, me, updateMe };
+
+// --- OTP Email Verification Flow ---
+
+async function sendOtp(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    // Prevent sending OTP for already-registered emails
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(409).json({ message: 'Email already in use' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await EmailVerification.findOneAndUpdate(
+      { email },
+      { email, otpHash, expiresAt, attempts: 0 },
+      { upsert: true, new: true }
+    );
+
+    // Build transporter like the provided example, using env
+    const port = Number(process.env.SMTP_PORT) || 587;
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465, // true if using port 465
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.MAIL_FROM,
+      to: email,
+      subject: 'Your OTP Code',
+      text: `Your OTP is: ${otp}`,
+      html: `<p>Your OTP is: <b>${otp}</b></p>`,
+    });
+
+    const payload = { message: 'OTP sent' };
+    if (String(process.env.DEBUG_RETURN_OTP).toLowerCase() === 'true') {
+      payload.otp = otp;
+    }
+    return res.json(payload);
+  } catch (err) { next(err); }
+}
+
+async function verifyOtp(req, res, next) {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
+
+    const rec = await EmailVerification.findOne({ email });
+    if (!rec) return res.status(400).json({ message: 'OTP not found. Request a new code.' });
+    if (rec.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired. Request a new code.' });
+
+    // Optional attempt limiting
+    if (rec.attempts >= 5) return res.status(429).json({ message: 'Too many attempts. Request a new code.' });
+
+    const ok = await bcrypt.compare(otp, rec.otpHash);
+    if (!ok) {
+      rec.attempts += 1;
+      await rec.save();
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    // Success: issue short-lived verification token and delete record
+    await EmailVerification.deleteOne({ _id: rec._id });
+    const verificationToken = jwt.sign(
+      { email, purpose: 'email_verification' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    return res.json({ message: 'Email verified', verificationToken });
+  } catch (err) { next(err); }
+}
+
+module.exports.sendOtp = sendOtp;
+module.exports.verifyOtp = verifyOtp;
