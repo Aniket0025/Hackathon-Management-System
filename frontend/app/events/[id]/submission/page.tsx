@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -163,8 +162,7 @@ export default function EventSubmissionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
-      <AdvancedNavigation currentPath="/my-apply" />
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div>

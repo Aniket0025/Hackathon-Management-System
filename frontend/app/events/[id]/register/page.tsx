@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, MapPin, ArrowLeft, User, Mail, Phone } from "lucide-react"
 import Link from "next/link"
+import type { CheckedState } from "@radix-ui/react-checkbox"
 
 type EventItem = {
   _id: string
@@ -365,8 +366,21 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
     return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
   }
 
+  // Accept All logic for agreements
+  const allAgreed =
+    registrationData.agreements.termsAccepted &&
+    registrationData.agreements.codeOfConductAccepted &&
+    registrationData.agreements.dataProcessingAccepted
+  const someAgreed =
+    !allAgreed && (
+      registrationData.agreements.termsAccepted ||
+      registrationData.agreements.codeOfConductAccepted ||
+      registrationData.agreements.dataProcessingAccepted
+    )
+  const acceptAllState: CheckedState = allAgreed ? true : someAgreed ? "indeterminate" : false
+
   return (
-    <div className="min-h-screen bg-background py-8">
+    <div className="min-h-screen py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
@@ -938,6 +952,23 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                 />
                 <Label htmlFor="dataProcessing" className="text-sm font-serif">
                   I consent to the processing of my personal data for event management and communication purposes
+                </Label>
+              </div>
+
+              {/* Accept All */}
+              <div className="flex items-start space-x-2 pt-2 border-t mt-2">
+                <Checkbox
+                  id="acceptAll"
+                  checked={acceptAllState}
+                  onCheckedChange={(val) => {
+                    const v = val === true
+                    updateAgreements("termsAccepted", v)
+                    updateAgreements("codeOfConductAccepted", v)
+                    updateAgreements("dataProcessingAccepted", v)
+                  }}
+                />
+                <Label htmlFor="acceptAll" className="text-sm font-serif">
+                  Accept all
                 </Label>
               </div>
             </CardContent>
