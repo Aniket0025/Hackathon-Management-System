@@ -85,6 +85,35 @@ export default function EventsPage() {
     return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
   }
 
+  // Parse a date that may be ISO or mm/dd/yyyy
+  const parseAnyDate = (value?: string) => {
+    if (!value) return null
+    // Try native parsing first
+    const d1 = new Date(value)
+    if (!isNaN(d1.getTime())) return d1
+    // Try mm/dd/yyyy manually
+    const m = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/)
+    if (m) {
+      const mm = parseInt(m[1], 10) - 1
+      const dd = parseInt(m[2], 10)
+      const yyyy = parseInt(m[3], 10)
+      const d = new Date(yyyy, mm, dd)
+      if (!isNaN(d.getTime())) return d
+    }
+    return null
+  }
+
+  const daysRemaining = (deadline?: string) => {
+    const d = parseAnyDate(deadline)
+    if (!d) return null
+    // Consider end of the day for deadline
+    const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+    const now = new Date()
+    const ms = endOfDay.getTime() - now.getTime()
+    const days = Math.ceil(ms / (1000 * 60 * 60 * 24))
+    return days
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
@@ -129,11 +158,12 @@ export default function EventsPage() {
                   )}
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle className="text-xl">{ev.title}</CardTitle>
-                    {ev.registrationDeadline && (
-                      <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                        <Clock className="w-3.5 h-3.5" /> Reg: {fmtDate(ev.registrationDeadline)}
-                      </span>
-                    )}
+                    {ev.registrationDeadline && (() => {
+                      const d = daysRemaining(ev.registrationDeadline)
+                      if (d === null) return null
+                      if (d < 0) return <span className="text-red-600 font-semibold">Closed</span>
+                      return <span className="text-xs font-semibold blink-red-black">{d} days left</span>
+                    })()}
                   </div>
                   <CardDescription>
                     <div className="flex items-center gap-3 text-slate-600 flex-wrap">
@@ -191,6 +221,15 @@ export default function EventsPage() {
           </div>
         )}
       </main>
+      <style jsx>{`
+        @keyframes blinkRB {
+          0%, 100% { color: #ef4444; }
+          50% { color: #000000; }
+        }
+        .blink-red-black {
+          animation: blinkRB 1s step-end infinite;
+        }
+      `}</style>
     </div>
   )
 }

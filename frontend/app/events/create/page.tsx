@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import * as Popover from "@radix-ui/react-popover"
+import { DayPicker } from "react-day-picker"
+import { format } from "date-fns"
+import "react-day-picker/dist/style.css"
 
 export default function CreateEventPage() {
   const router = useRouter()
@@ -16,6 +20,9 @@ export default function CreateEventPage() {
   const [loadingMe, setLoadingMe] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [openStart, setOpenStart] = useState(false)
+  const [openEnd, setOpenEnd] = useState(false)
+  const [openReg, setOpenReg] = useState(false)
 
   const [form, setForm] = useState({
     title: "",
@@ -23,7 +30,6 @@ export default function CreateEventPage() {
     startDate: "",
     endDate: "",
     location: "",
-    status: "upcoming" as "draft" | "upcoming" | "ongoing" | "completed",
     fees: "",
     website: "",
     registrationDeadline: "",
@@ -35,6 +41,12 @@ export default function CreateEventPage() {
     contactPhone: "",
     registrationLimit: "",
     bannerUrl: "",
+    themes: "", // comma-separated
+    tracks: "", // comma-separated
+    rules: "",
+    rounds: [] as Array<{ title: string; description: string; startDate: string; endDate: string }>,
+    prizes: [] as Array<{ title: string; amount: string }>,
+    sponsors: [] as Array<{ title: string; description: string; bannerUrl: string }>,
   })
 
   useEffect(() => {
@@ -68,6 +80,25 @@ export default function CreateEventPage() {
 
   const update = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
 
+  // value is stored as local 'yyyy-MM-dd'
+  const parseLocalDateString = (s?: string) => {
+    if (!s) return null
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!m) return null
+    const y = parseInt(m[1], 10)
+    const mo = parseInt(m[2], 10) - 1
+    const d = parseInt(m[3], 10)
+    return new Date(y, mo, d)
+  }
+
+  const fmtDisplay = (value?: string) => {
+    const d = parseLocalDateString(value)
+    return d ? format(d, "MM/dd/yyyy") : ""
+  }
+
+  const toLocalDateStr = (d: Date | undefined | null) =>
+    d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : ""
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -76,11 +107,11 @@ export default function CreateEventPage() {
       setError("Title, start date, and end date are required.")
       return
     }
-    if (new Date(form.endDate) < new Date(form.startDate)) {
+    if (parseLocalDateString(form.endDate)! < parseLocalDateString(form.startDate)!) {
       setError("End date must be after start date.")
       return
     }
-    if (form.registrationDeadline && new Date(form.registrationDeadline) > new Date(form.endDate)) {
+    if (form.registrationDeadline && parseLocalDateString(form.registrationDeadline)! > parseLocalDateString(form.endDate)!) {
       setError("Registration deadline must be on or before the event end date.")
       return
     }
@@ -110,6 +141,23 @@ export default function CreateEventPage() {
       }
     }
 
+    // Validate fees (0 means free)
+    if (form.fees !== "") {
+      const fee = Number(form.fees)
+      if (!Number.isFinite(fee) || fee < 0) {
+        setError("Fees must be a non-negative number (0 for free).")
+        return
+      }
+    }
+
+    // Validate sponsor banner file type (basic URL suffix check)
+    for (const s of form.sponsors) {
+      if (s.bannerUrl && !/(\.jpg|\.jpeg|\.png)$/i.test(s.bannerUrl)) {
+        setError("Sponsor banner must be a .jpg, .jpeg, or .png URL.")
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const token = localStorage.getItem("token")
@@ -123,13 +171,12 @@ export default function CreateEventPage() {
         body: JSON.stringify({
           title: form.title,
           description: form.description || undefined,
-          startDate: new Date(form.startDate).toISOString(),
-          endDate: new Date(form.endDate).toISOString(),
+          startDate: parseLocalDateString(form.startDate)!.toISOString(),
+          endDate: parseLocalDateString(form.endDate)!.toISOString(),
           location: form.location || undefined,
-          status: form.status,
-          fees: form.fees ? Number(form.fees) : undefined,
+          fees: form.fees !== "" ? Number(form.fees) : 0,
           website: form.website || undefined,
-          registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
+          registrationDeadline: form.registrationDeadline ? parseLocalDateString(form.registrationDeadline)!.toISOString() : undefined,
           participantType: form.participantType,
           minTeamSize: form.participantType === "group" ? (form.minTeamSize ? Number(form.minTeamSize) : 1) : undefined,
           maxTeamSize: form.participantType === "group" ? (form.maxTeamSize ? Number(form.maxTeamSize) : undefined) : undefined,
@@ -138,6 +185,34 @@ export default function CreateEventPage() {
           contactPhone: form.contactPhone || undefined,
           registrationLimit: form.registrationLimit !== "" ? Number(form.registrationLimit) : undefined,
           bannerUrl: form.bannerUrl || undefined,
+          themes: form.themes
+            ? form.themes.split(",").map((s) => s.trim()).filter(Boolean)
+            : undefined,
+          tracks: form.tracks
+            ? form.tracks.split(",").map((s) => s.trim()).filter(Boolean)
+            : undefined,
+          rules: form.rules || undefined,
+          rounds: form.rounds && form.rounds.length
+            ? form.rounds.map((r) => ({
+                title: r.title,
+                description: r.description || undefined,
+                startDate: parseLocalDateString(r.startDate)!.toISOString(),
+                endDate: parseLocalDateString(r.endDate)!.toISOString(),
+              }))
+            : undefined,
+          prizes: form.prizes && form.prizes.length
+            ? form.prizes.map((p) => ({
+                title: p.title,
+                amount: p.amount ? Number(p.amount) : undefined,
+              }))
+            : undefined,
+          sponsors: form.sponsors && form.sponsors.length
+            ? form.sponsors.map((s) => ({
+                title: s.title,
+                description: s.description || undefined,
+                bannerUrl: s.bannerUrl || undefined,
+              }))
+            : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -172,18 +247,70 @@ export default function CreateEventPage() {
                   <Label htmlFor="title">Title</Label>
                   <Input id="title" value={form.title} onChange={(e) => update("title", e.target.value)} required />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" value={form.description} onChange={(e) => update("description", e.target.value)} />
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="start">Start Date</Label>
-                    <Input id="start" type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} required />
+                    <Popover.Root open={openStart} onOpenChange={setOpenStart}>
+                      <Popover.Trigger asChild>
+                        <Button type="button" variant="outline" className="w-full justify-start">
+                          {form.startDate ? fmtDisplay(form.startDate) : "Pick a date"}
+                        </Button>
+                      </Popover.Trigger>
+                      <Popover.Content className="bg-white p-2 rounded-md shadow-md border" sideOffset={8}>
+                        <DayPicker
+                          mode="single"
+                          selected={parseLocalDateString(form.startDate) || undefined}
+                          captionLayout="dropdown"
+                          fromYear={2000}
+                          toYear={2100}
+                          onSelect={(d) => {
+                            update("startDate", toLocalDateStr(d || undefined))
+                            setOpenStart(false)
+                            // If endDate exists and is before new start, clear it
+                            if (d && form.endDate) {
+                              const end = parseLocalDateString(form.endDate)!
+                              const start = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+                              if (end < start) update("endDate", "")
+                            }
+                            // Also ensure registration deadline is <= endDate and >= startDate; if > end, clear
+                            if (d && form.registrationDeadline) {
+                              const reg = parseLocalDateString(form.registrationDeadline)!
+                              const start = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+                              if (reg < start) update("registrationDeadline", "")
+                            }
+                          }}
+                        />
+                      </Popover.Content>
+                    </Popover.Root>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="end">End Date</Label>
-                    <Input id="end" type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} required />
+                    <Popover.Root open={openEnd} onOpenChange={setOpenEnd}>
+                      <Popover.Trigger asChild>
+                        <Button type="button" variant="outline" className="w-full justify-start">
+                          {form.endDate ? fmtDisplay(form.endDate) : "Pick a date"}
+                        </Button>
+                      </Popover.Trigger>
+                      <Popover.Content className="bg-white p-2 rounded-md shadow-md border" sideOffset={8}>
+                        <DayPicker
+                          mode="single"
+                          selected={parseLocalDateString(form.endDate) || undefined}
+                          disabled={form.startDate ? { before: parseLocalDateString(form.startDate)! } : undefined}
+                          captionLayout="dropdown"
+                          fromYear={2000}
+                          toYear={2100}
+                          onSelect={(d) => {
+                            update("endDate", toLocalDateStr(d || undefined))
+                            setOpenEnd(false)
+                            if (d && form.registrationDeadline) {
+                              const reg = parseLocalDateString(form.registrationDeadline)!
+                              const end = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+                              if (reg > end) update("registrationDeadline", "")
+                            }
+                          }}
+                        />
+                      </Popover.Content>
+                    </Popover.Root>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -192,8 +319,16 @@ export default function CreateEventPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="fees">Fees (in your currency)</Label>
-                    <Input id="fees" type="number" min="0" step="0.01" value={form.fees} onChange={(e) => update("fees", e.target.value)} />
+                    <Label htmlFor="fees">Fees</Label>
+                    <Input
+                      id="fees"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0 for free"
+                      value={form.fees}
+                      onChange={(e) => update("fees", e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="website">Official Website</Label>
@@ -207,7 +342,32 @@ export default function CreateEventPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="registrationDeadline">Registration Deadline</Label>
-                  <Input id="registrationDeadline" type="date" value={form.registrationDeadline} onChange={(e) => update("registrationDeadline", e.target.value)} />
+                  <Popover.Root open={openReg} onOpenChange={setOpenReg}>
+                    <Popover.Trigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-start">
+                        {form.registrationDeadline ? fmtDisplay(form.registrationDeadline) : "Pick a date"}
+                      </Button>
+                    </Popover.Trigger>
+                    <Popover.Content className="bg-white p-2 rounded-md shadow-md border" sideOffset={8}>
+                      <DayPicker
+                        mode="single"
+                        selected={parseLocalDateString(form.registrationDeadline) || undefined}
+                        disabled={(() => {
+                          const dis: any = {}
+                          if (form.endDate) dis.after = parseLocalDateString(form.endDate)!
+                          if (form.startDate) dis.before = parseLocalDateString(form.startDate)!
+                          return Object.keys(dis).length ? dis : undefined
+                        })()}
+                        captionLayout="dropdown"
+                        fromYear={2000}
+                        toYear={2100}
+                        onSelect={(d) => {
+                          update("registrationDeadline", toLocalDateStr(d || undefined))
+                          setOpenReg(false)
+                        }}
+                      />
+                    </Popover.Content>
+                  </Popover.Root>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="registrationLimit">Registration Limit</Label>
@@ -221,20 +381,8 @@ export default function CreateEventPage() {
                     onChange={(e) => update("registrationLimit", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={form.status} onValueChange={(v) => update("status", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="upcoming">Upcoming</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                {/* Participant Type moved here */}
                 <div className="space-y-2">
                   <Label>Participant Type</Label>
                   <Select value={form.participantType} onValueChange={(v) => update("participantType", v)}>
@@ -275,6 +423,151 @@ export default function CreateEventPage() {
                     </div>
                   </div>
                 )}
+                {/* Themes & Tracks */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="themes">Themes (comma separated)</Label>
+                    <Input id="themes" placeholder="AI, Sustainability, HealthTech" value={form.themes} onChange={(e) => update("themes", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tracks">Tracks (comma separated)</Label>
+                    <Input id="tracks" placeholder="Web, Mobile, Data Science" value={form.tracks} onChange={(e) => update("tracks", e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Rules */}
+                <div className="space-y-2">
+                  <Label htmlFor="rules">Rules</Label>
+                  <Textarea id="rules" placeholder="Add participation rules..." value={form.rules} onChange={(e) => update("rules", e.target.value)} />
+                </div>
+
+                {/* Rounds / Timeline */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Stages & Timeline (Rounds)</Label>
+                    <Button type="button" variant="outline" onClick={() => setForm((p) => ({ ...p, rounds: [...p.rounds, { title: "", description: "", startDate: "", endDate: "" }] }))}>Add Round</Button>
+                  </div>
+                  <div className="space-y-4">
+                    {form.rounds.map((r, idx) => (
+                      <div key={idx} className="border rounded-md p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Round Title</Label>
+                            <Input value={r.title} onChange={(e) => setForm((p) => { const arr = [...p.rounds]; arr[idx] = { ...arr[idx], title: e.target.value }; return { ...p, rounds: arr } })} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Round Description</Label>
+                            <Input value={r.description} onChange={(e) => setForm((p) => { const arr = [...p.rounds]; arr[idx] = { ...arr[idx], description: e.target.value }; return { ...p, rounds: arr } })} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Start</Label>
+                            <Popover.Root>
+                              <Popover.Trigger asChild>
+                                <Button type="button" variant="outline" className="w-full justify-start">{r.startDate ? fmtDisplay(r.startDate) : "Pick a date"}</Button>
+                              </Popover.Trigger>
+                              <Popover.Content className="bg-white p-2 rounded-md shadow-md border" sideOffset={8}>
+                                <DayPicker
+                                  mode="single"
+                                  selected={parseLocalDateString(r.startDate) || undefined}
+                                  captionLayout="dropdown"
+                                  fromYear={2000}
+                                  toYear={2100}
+                                  onSelect={(d) => setForm((p) => { const arr = [...p.rounds]; arr[idx] = { ...arr[idx], startDate: toLocalDateStr(d || undefined) }; return { ...p, rounds: arr } })}
+                                />
+                              </Popover.Content>
+                            </Popover.Root>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>End</Label>
+                            <Popover.Root>
+                              <Popover.Trigger asChild>
+                                <Button type="button" variant="outline" className="w-full justify-start">{r.endDate ? fmtDisplay(r.endDate) : "Pick a date"}</Button>
+                              </Popover.Trigger>
+                              <Popover.Content className="bg-white p-2 rounded-md shadow-md border" sideOffset={8}>
+                                <DayPicker
+                                  mode="single"
+                                  selected={parseLocalDateString(r.endDate) || undefined}
+                                  disabled={r.startDate ? { before: parseLocalDateString(r.startDate)! } : undefined}
+                                  captionLayout="dropdown"
+                                  fromYear={2000}
+                                  toYear={2100}
+                                  onSelect={(d) => setForm((p) => { const arr = [...p.rounds]; arr[idx] = { ...arr[idx], endDate: toLocalDateStr(d || undefined) }; return { ...p, rounds: arr } })}
+                                />
+                              </Popover.Content>
+                            </Popover.Root>
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button type="button" variant="ghost" onClick={() => setForm((p) => ({ ...p, rounds: p.rounds.filter((_, i) => i !== idx) }))}>Remove</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prizes */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Prizes</Label>
+                    <Button type="button" variant="outline" onClick={() => setForm((p) => ({ ...p, prizes: [...p.prizes, { title: "", amount: "" }] }))}>Add Prize</Button>
+                  </div>
+                  <div className="space-y-4">
+                    {form.prizes.map((pr, idx) => (
+                      <div key={idx} className="border rounded-md p-3 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                        <div className="space-y-2">
+                          <Label>Title</Label>
+                          <Input value={pr.title} onChange={(e) => setForm((p) => { const arr = [...p.prizes]; arr[idx] = { ...arr[idx], title: e.target.value }; return { ...p, prizes: arr } })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Amount</Label>
+                          <Input type="number" min="0" step="0.01" value={pr.amount} onChange={(e) => setForm((p) => { const arr = [...p.prizes]; arr[idx] = { ...arr[idx], amount: e.target.value }; return { ...p, prizes: arr } })} />
+                        </div>
+                        <div className="md:col-span-3 flex justify-end">
+                          <Button type="button" variant="ghost" onClick={() => setForm((p) => ({ ...p, prizes: p.prizes.filter((_, i) => i !== idx) }))}>Remove</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sponsors / Partners */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Sponsors / Partners</Label>
+                    <Button type="button" variant="outline" onClick={() => setForm((p) => ({ ...p, sponsors: [...p.sponsors, { title: "", description: "", bannerUrl: "" }] }))}>Add Sponsor</Button>
+                  </div>
+                  <div className="space-y-4">
+                    {form.sponsors.map((sp, idx) => (
+                      <div key={idx} className="border rounded-md p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Title</Label>
+                            <Input value={sp.title} onChange={(e) => setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], title: e.target.value }; return { ...p, sponsors: arr } })} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Banner Image URL (.jpg, .jpeg, .png)</Label>
+                            <Input placeholder="https://.../logo.png" value={sp.bannerUrl} onChange={(e) => setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], bannerUrl: e.target.value }; return { ...p, sponsors: arr } })} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Textarea placeholder="Sponsor details..." value={sp.description} onChange={(e) => setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], description: e.target.value }; return { ...p, sponsors: arr } })} />
+                        </div>
+                        <div className="flex justify-end">
+                          <Button type="button" variant="ghost" onClick={() => setForm((p) => ({ ...p, sponsors: p.sponsors.filter((_, i) => i !== idx) }))}>Remove</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Move description to the end */}
+                <div className="space-y-2">
+                  <Label htmlFor="description">Detailed Description</Label>
+                  <Textarea id="description" value={form.description} onChange={(e) => update("description", e.target.value)} />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="contactName">Organizer Contact Name</Label>

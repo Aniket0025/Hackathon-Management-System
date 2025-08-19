@@ -26,6 +26,12 @@ type EventItem = {
   contactPhone?: string
   registrationLimit?: number
   bannerUrl?: string
+  themes?: string[]
+  tracks?: string[]
+  rules?: string
+  rounds?: Array<{ title: string; description?: string; startDate: string; endDate: string }>
+  prizes?: Array<{ title: string; amount?: number; description?: string }>
+  sponsors?: Array<{ title: string; description?: string; bannerUrl?: string }>
 }
 
 export default function EventDetailsPage() {
@@ -118,6 +124,20 @@ export default function EventDetailsPage() {
                 <div className="h-4 w-3/4 bg-slate-200 rounded" />
                 <div className="h-4 w-2/3 bg-slate-200 rounded" />
                 <div className="h-4 w-1/2 bg-slate-200 rounded md:col-span-2" />
+              </div>
+
+              {/* Stages & Timeline (skeleton placeholder) */}
+              <div className="pt-6 space-y-3">
+                <div className="h-5 w-40 bg-slate-200 rounded" />
+                <div className="h-24 w-full bg-slate-200 rounded" />
+              </div>
+              {/* Prizes (skeleton placeholder) */}
+              <div className="pt-6 space-y-3">
+                <div className="h-5 w-24 bg-slate-200 rounded" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="h-24 w-full bg-slate-200 rounded" />
+                  <div className="h-24 w-full bg-slate-200 rounded" />
+                </div>
               </div>
               <div className="h-10 w-32 bg-slate-200 rounded" />
             </CardContent>
@@ -213,31 +233,68 @@ export default function EventDetailsPage() {
                 <div className="flex items-center mb-3">
                   <div className="flex items-center gap-2">
                     <Star className="w-5 h-5 text-amber-500" />
-                    <h3 className="text-lg font-semibold">Team Performance</h3>
-                  </div>
                 </div>
-                {teamsError ? (
-                  <div className="text-sm text-red-600">{teamsError}</div>
-                ) : topTeams.length === 0 ? (
-                  <div className="text-sm text-slate-600">No teams yet for this event.</div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {topTeams.map((t) => (
-                      <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Star className="w-4 h-4 text-amber-500" />
-                          <span className="font-medium">{t.name}</span>
-                        </div>
-                        <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </main>
-    </div>
-  )
+              {teamsError ? (
+                <div className="text-sm text-red-600">{teamsError}</div>
+              ) : topTeams.length === 0 ? (
+                <div className="text-sm text-slate-600">No teams yet for this event.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {topTeams.map((t) => (
+                    <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500" />
+                        <span className="font-medium">{t.name}</span>
+                      </div>
+                      <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Prizes */}
+            {event.prizes && event.prizes.length > 0 && (
+              <div className="pt-6">
+                <h3 className="text-lg font-semibold mb-3">Prizes</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {event.prizes.map((p, idx) => (
+                    <div key={idx} className="border rounded-lg p-4">
+                      <div className="text-base font-semibold">{p.title}</div>
+                      {typeof p.amount === 'number' && (
+                        <div className="text-sm text-slate-700">Amount: {p.amount}</div>
+                      )}
+                      {p.description && (
+                        <div className="text-sm text-slate-700 mt-1">{p.description}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Sponsors / Partners */}
+            {event.sponsors && event.sponsors.length > 0 && (
+              <div className="pt-6">
+                <h3 className="text-lg font-semibold mb-3">Sponsors / Partners</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {event.sponsors.map((s, idx) => (
+                    <div key={idx} className="border rounded-lg p-4 flex gap-3 items-start">
+                      {s.bannerUrl && (
+                        <img src={s.bannerUrl} alt={s.title} className="w-16 h-16 object-contain rounded bg-white border" />
+                      )}
+                      <div className="space-y-1">
+                        <div className="text-base font-semibold">{s.title}</div>
+                        {s.description && <div className="text-sm text-slate-700">{s.description}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </main>
+  </div>
+)
 }
