@@ -13,10 +13,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // Removed RadioGroup imports as Registration Type card is removed
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, MapPin, ArrowLeft, Pencil, Trash2, Crown } from "lucide-react"
+import { Calendar, Users, MapPin, ArrowLeft, Pencil, Trash2, Crown, Ellipsis, Mail } from "lucide-react"
 import Link from "next/link"
 import type { CheckedState } from "@radix-ui/react-checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { formatDateRange } from "@/lib/date"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type EventItem = {
   _id: string
@@ -153,6 +160,9 @@ export default function EventRegistrationPage() {
   const [newSkill, setNewSkill] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [inviteMemberIndex, setInviteMemberIndex] = useState<number | null>(null)
+  const [inviteEmail, setInviteEmail] = useState("")
 
   useEffect(() => {
     if (!id) return
@@ -188,6 +198,117 @@ export default function EventRegistrationPage() {
     }
     load()
   }, [id])
+
+  // Load logged-in user's profile to prefill personalInfo (and later Member 1)
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) return
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json().catch(() => ({} as any))
+        const user = data?.user || data
+        if (!user) return
+        const fullName = (user.name || "").trim()
+        const sp = fullName.indexOf(" ")
+        const firstName = sp > 0 ? fullName.slice(0, sp) : fullName
+        const lastName = sp > 0 ? fullName.slice(sp + 1) : ""
+        // Normalize helper
+        const norm = (v: any) => (typeof v === "string" ? v.trim() : "")
+        const normGender = (v: any) => {
+          const s = norm(v).toLowerCase()
+          if (s === "male" || s === "female" || s === "other" || s === "prefer_not_say") return s
+          if (s === "prefer not to say") return "prefer_not_say"
+          return ""
+        }
+        const normType = (v: any) => {
+          const s = norm(v).toLowerCase().replaceAll(" ", "_")
+          const allowed = ["college_student","professional","school_student","fresher","other"] as const
+          return (allowed as readonly string[]).includes(s) ? s : ""
+        }
+        const normDomain = (v: any) => {
+          const s = norm(v).toLowerCase()
+          if (s.includes("arts") && s.includes("science")) return "arts_science"
+          const map: Record<string,string> = { management:"management", engineering:"engineering", medicine:"medicine", law:"law", other:"other" }
+          return map[s] || ""
+        }
+        const normYear = (v: any) => {
+          const s = norm(v)
+          return /^(2026|2027|2028|2029)$/.test(s) ? s : ""
+        }
+        const normDuration = (v: any) => {
+          const s = norm(v)
+          return /^(2|3|4|5)$/.test(s) ? s : ""
+        }
+        const normDiffAbled = (v: any) => {
+          const s = norm(v).toLowerCase()
+          if (s === "yes" || s === "true" || s === "y") return "yes"
+          if (s === "no" || s === "false" || s === "n") return "no"
+          return ""
+        }
+        setRegistrationData((prev) => ({
+          ...prev,
+          personalInfo: {
+            ...prev.personalInfo,
+            firstName: firstName || prev.personalInfo.firstName,
+            lastName: lastName || prev.personalInfo.lastName,
+            email: user.email || prev.personalInfo.email,
+            phone: (user as any).phone || prev.personalInfo.phone,
+            bio: (user as any).bio || prev.personalInfo.bio,
+            instituteName: (user as any).organization || prev.personalInfo.instituteName,
+            location: (user as any).location || prev.personalInfo.location,
+            // Dropdown fields if profile has them
+            gender: (normGender((user as any).gender) as RegistrationData["personalInfo"]["gender"]) || prev.personalInfo.gender,
+            type: (normType((user as any).participantType || (user as any).type) as RegistrationData["personalInfo"]["type"]) || prev.personalInfo.type,
+            domain: (normDomain((user as any).domain || (user as any).specialization) as RegistrationData["personalInfo"]["domain"]) || prev.personalInfo.domain,
+            graduatingYear: (normYear((user as any).graduatingYear || (user as any).graduationYear) as RegistrationData["personalInfo"]["graduatingYear"]) || prev.personalInfo.graduatingYear,
+            courseDuration: (normDuration((user as any).courseDuration || (user as any).courseDurationYears) as RegistrationData["personalInfo"]["courseDuration"]) || prev.personalInfo.courseDuration,
+            differentlyAbled: (normDiffAbled((user as any).differentlyAbled || (user as any).differently_abled) as RegistrationData["personalInfo"]["differentlyAbled"]) || prev.personalInfo.differentlyAbled,
+          },
+        }))
+      } catch {
+        // ignore profile prefill errors
+      }
+    }
+    run()
+  }, [])
+
+  // Helper to detect if a member is empty
+  const isEmptyMember = (m: RegistrationData["teamInfo"]["members"][number]) => {
+    return !(
+      (m.firstName || m.lastName || m.email || m.phone || m.gender || m.instituteName || m.type || m.domain || m.bio || m.graduatingYear || m.courseDuration || m.differentlyAbled || m.location)
+    )
+  }
+
+  // When members initialize and/or personalInfo updates, auto-fill Member 1 per-field if missing
+  useEffect(() => {
+    const m0 = registrationData.teamInfo.members[0]
+    if (!m0) return
+    const p = registrationData.personalInfo
+    const fields: Array<keyof RegistrationData["teamInfo"]["members"][number]> = [
+      "firstName","lastName","email","phone","gender","instituteName","type","domain","bio","graduatingYear","courseDuration","differentlyAbled","location",
+    ]
+    let changed = false
+    const next = { ...m0 }
+    for (const f of fields) {
+      const mv = (next as any)[f]
+      const pv = (p as any)[f]
+      if ((!mv || String(mv).trim() === "") && pv && String(pv).trim() !== "") {
+        ;(next as any)[f] = pv
+        changed = true
+      }
+    }
+    if (changed) {
+      setRegistrationData((prev) => {
+        const members = [...prev.teamInfo.members]
+        members[0] = next
+        return { ...prev, teamInfo: { ...prev.teamInfo, members } }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrationData.teamInfo.members.length, registrationData.personalInfo])
 
   const updatePersonalInfo = (field: string, value: string) => {
     setRegistrationData((prev) => ({
@@ -261,6 +382,24 @@ export default function EventRegistrationPage() {
       ...prev,
       teamInfo: { ...prev.teamInfo, members: prev.teamInfo.members.filter((_, i) => i !== index) },
     }))
+  }
+
+  const openInviteForMember = (index: number) => {
+    const existing = registrationData.teamInfo.members[index]?.email || ""
+    setInviteMemberIndex(index)
+    setInviteEmail(existing)
+    setInviteDialogOpen(true)
+  }
+
+  const handleSendInvite = async () => {
+    const email = (inviteEmail || "").trim()
+    const isValid = /\S+@\S+\.\S+/.test(email)
+    if (!isValid || inviteMemberIndex == null) {
+      return
+    }
+    // Update member email locally; hook for API invite can be added here
+    updateMember(inviteMemberIndex, "email", email)
+    setInviteDialogOpen(false)
   }
 
   // Copy Personal Information into a team member (used for Member 1 shortcut)
@@ -454,10 +593,7 @@ export default function EventRegistrationPage() {
     return null
   }
 
-  const fmtDate = (iso: string) => {
-    const d = new Date(iso)
-    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
-  }
+  // Use shared date formatter for consistency
 
   // Accept All logic for agreements
   const allAgreed =
@@ -495,7 +631,7 @@ export default function EventRegistrationPage() {
                 <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground font-serif">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {`${fmtDate(event.startDate)} - ${fmtDate(event.endDate)}`}
+                    {formatDateRange(event.startDate, event.endDate)}
                   </div>
                   {event.location && (
                     <div className="flex items-center gap-1">
@@ -672,12 +808,24 @@ export default function EventRegistrationPage() {
                             </div>
                           </button>
                           <div className="flex items-center gap-2">
-                            <Button type="button" size="icon" variant="outline" onClick={() => setEditingMemberIndex(idx)} aria-label="Edit">
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button type="button" size="icon" variant="outline" onClick={() => removeMember(idx)} aria-label="Remove">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="icon" variant="outline" aria-label="Actions">
+                                  <Ellipsis className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openInviteForMember(idx)}>
+                                  <Mail className="w-4 h-4 mr-2" /> Invite
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditingMemberIndex(idx)}>
+                                  <Pencil className="w-4 h-4 mr-2" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => removeMember(idx)} className="text-red-600 focus:text-red-700">
+                                  <Trash2 className="w-4 h-4 mr-2" /> Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       )
@@ -719,7 +867,7 @@ export default function EventRegistrationPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label className="font-serif">Gender</Label>
-                                <Select value={m.gender} onValueChange={(v) => updateMember(idx, "gender", v)}>
+                                <Select value={m.gender || undefined} onValueChange={(v) => updateMember(idx, "gender", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="male">Male</SelectItem>
@@ -737,7 +885,7 @@ export default function EventRegistrationPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label className="font-serif">Type</Label>
-                                <Select value={m.type} onValueChange={(v) => updateMember(idx, "type", v)}>
+                                <Select value={m.type || undefined} onValueChange={(v) => updateMember(idx, "type", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="college_student">College Student</SelectItem>
@@ -750,12 +898,12 @@ export default function EventRegistrationPage() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="font-serif">Domain</Label>
-                                <Select value={m.domain} onValueChange={(v) => updateMember(idx, "domain", v)}>
+                                <Select value={m.domain || undefined} onValueChange={(v) => updateMember(idx, "domain", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select domain" /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="management">Management</SelectItem>
                                     <SelectItem value="engineering">Engineering</SelectItem>
-                                    <SelectItem value="arts_science">Arts and Science</SelectItem>
+                                    <SelectItem value="arts_science">Arts & Science</SelectItem>
                                     <SelectItem value="medicine">Medicine</SelectItem>
                                     <SelectItem value="law">Law</SelectItem>
                                     <SelectItem value="other">Other</SelectItem>
@@ -770,7 +918,7 @@ export default function EventRegistrationPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label className="font-serif">Graduating Year</Label>
-                                <Select value={m.graduatingYear} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
+                                <Select value={m.graduatingYear || undefined} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
                                   <SelectContent>
                                     {["2026","2027","2028","2029"].map((y) => (
@@ -781,7 +929,7 @@ export default function EventRegistrationPage() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="font-serif">Course Duration (years)</Label>
-                                <Select value={m.courseDuration} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
+                                <Select value={m.courseDuration || undefined} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
                                   <SelectContent>
                                     {["2","3","4","5"].map((d) => (
@@ -794,7 +942,7 @@ export default function EventRegistrationPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label className="font-serif">Differently Abled</Label>
-                                <Select value={m.differentlyAbled} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
+                                <Select value={m.differentlyAbled || undefined} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
                                   <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="no">No</SelectItem>
@@ -812,6 +960,35 @@ export default function EventRegistrationPage() {
                         )})()}
                       </>
                     )}
+                  </DialogContent>
+                </Dialog>
+
+                {/* Invite Member Dialog */}
+                <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="font-sans">Invite Team Member</DialogTitle>
+                      <DialogDescription className="font-serif">Enter the email address of the person you want to invite.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteEmail" className="font-serif">Email</Label>
+                        <Input
+                          id="inviteEmail"
+                          type="email"
+                          placeholder="name@example.com"
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          className="font-serif"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+                        <Button type="button" onClick={handleSendInvite}>
+                          <Mail className="w-4 h-4 mr-2" /> Send Invite
+                        </Button>
+                      </div>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </CardContent>
