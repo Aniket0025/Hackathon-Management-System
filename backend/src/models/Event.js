@@ -21,6 +21,42 @@ const eventSchema = new mongoose.Schema(
     contactPhone: { type: String },
     registrationLimit: { type: Number, min: 0 },
     bannerUrl: { type: String },
+
+    // New structured content
+    themes: [{ type: String }],
+    tracks: [{ type: String }],
+    rules: { type: String },
+    rounds: [
+      new mongoose.Schema(
+        {
+          title: { type: String, required: true },
+          description: { type: String },
+          startDate: { type: Date, required: true },
+          endDate: { type: Date, required: true },
+        },
+        { _id: false }
+      ),
+    ],
+    prizes: [
+      new mongoose.Schema(
+        {
+          title: { type: String, required: true },
+          amount: { type: Number },
+          description: { type: String },
+        },
+        { _id: false }
+      ),
+    ],
+    sponsors: [
+      new mongoose.Schema(
+        {
+          title: { type: String, required: true },
+          description: { type: String },
+          bannerUrl: { type: String },
+        },
+        { _id: false }
+      ),
+    ],
   },
   { timestamps: true }
 );
