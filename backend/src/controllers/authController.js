@@ -173,3 +173,64 @@ async function verifyOtp(req, res, next) {
 
 module.exports.sendOtp = sendOtp;
 module.exports.verifyOtp = verifyOtp;
+
+// --- Forgot Password Flow ---
+
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    const user = await User.findOne({ email });
+    // Do not leak existence; respond success even if not found
+    if (!user) return res.json({ message: 'If the email exists, a reset link has been sent.' });
+
+    const token = jwt.sign(
+      { email, purpose: 'password_reset' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const frontendBase = process.env.FRONTEND_BASE || 'http://localhost:3000';
+    const resetUrl = `${frontendBase}/auth/reset-password?token=${encodeURIComponent(token)}`;
+
+    await sendMail({
+      to: email,
+      subject: 'Reset your password',
+      text: `Click the link to reset your password: ${resetUrl} (valid for 15 minutes)`,
+      html: `<p>Click the link to reset your password (valid for 15 minutes):</p>
+             <p><a href="${resetUrl}">${resetUrl}</a></p>`
+    });
+
+    return res.json({ message: 'If the email exists, a reset link has been sent.' });
+  } catch (err) { next(err); }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: 'token and password are required' });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    if (payload.purpose !== 'password_reset' || !payload.email) {
+      return res.status(400).json({ message: 'Invalid reset token' });
+    }
+
+    const user = await User.findOne({ email: payload.email });
+    if (!user) return res.status(400).json({ message: 'User not found' });
+
+    const hash = await bcrypt.hash(password, 10);
+    user.password = hash;
+    await user.save();
+
+    return res.json({ message: 'Password updated successfully' });
+  } catch (err) { next(err); }
+}
+
+module.exports.forgotPassword = forgotPassword;
+module.exports.resetPassword = resetPassword;
