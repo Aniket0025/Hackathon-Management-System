@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { User, Mail, Building2, MapPin, Phone, CalendarClock, ShieldCheck, Lock, Github, Linkedin, Globe } from "lucide-react"
 
 type Me = {
@@ -42,11 +43,78 @@ export default function ProfilePage() {
     social: { github: "", linkedin: "", website: "" },
   })
 
+  // Participant details dialog state (fields aligned with event registration)
+  const [participantOpen, setParticipantOpen] = useState(false)
+  const [participantSaving, setParticipantSaving] = useState(false)
+  const [participantForm, setParticipantForm] = useState<any>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    gender: "",
+    instituteName: "",
+    type: "",
+    domain: "",
+    bio: "",
+    graduatingYear: "",
+    courseDuration: "",
+    differentlyAbled: "",
+    location: "",
+  })
+
   // Helpers for social links
   const normalizeUrl = (url: string) => {
     if (!url) return ""
     if (/^https?:\/\//i.test(url)) return url
     return `https://${url}`
+  }
+
+  const handleSaveParticipant = async () => {
+    try {
+      setParticipantSaving(true)
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        window.location.href = "/auth/login"
+        return
+      }
+      // Merge participant fields into profile payload
+      const payload = {
+        ...form,
+        name: [participantForm.firstName, participantForm.lastName].filter(Boolean).join(" ") || form.name,
+        email: participantForm.email || (me as any)?.email,
+        phone: participantForm.phone,
+        bio: participantForm.bio,
+        organization: participantForm.instituteName,
+        location: participantForm.location,
+        // additional participant fields preserved for future backend support
+        gender: participantForm.gender,
+        participantType: participantForm.type,
+        domain: participantForm.domain,
+        graduatingYear: participantForm.graduatingYear,
+        courseDuration: participantForm.courseDuration,
+        differentlyAbled: participantForm.differentlyAbled,
+      }
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const res = await fetch(`${base}/api/auth/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.message || `Failed to save profile (${res.status})`)
+      }
+      const data = await res.json()
+      setMe(data?.user || data)
+      setParticipantOpen(false)
+    } catch (e: any) {
+      setError(e?.message || "Failed to save profile")
+    } finally {
+      setParticipantSaving(false)
+    }
   }
 
   const openOrEdit = (url?: string) => {
@@ -107,6 +175,22 @@ export default function ProfilePage() {
           website: (me as any).social?.website || "",
         },
       })
+
+      // Prefill participant form from profile when possible
+      const name = (me.name || "").trim()
+      const firstSpace = name.indexOf(" ")
+      const firstName = firstSpace > 0 ? name.slice(0, firstSpace) : name
+      const lastName = firstSpace > 0 ? name.slice(firstSpace + 1) : ""
+      setParticipantForm((pf: any) => ({
+        ...pf,
+        firstName,
+        lastName,
+        email: me.email || pf.email || "",
+        phone: (me as any).phone || pf.phone || "",
+        instituteName: (me as any).organization || pf.instituteName || "",
+        bio: (me as any).bio || pf.bio || "",
+        location: (me as any).location || pf.location || "",
+      }))
     }
   }, [me])
 
@@ -250,6 +334,7 @@ export default function ProfilePage() {
                   <li>Connect GitHub/LinkedIn</li>
                   <li>Write a short bio</li>
                 </ul>
+                <Button variant="outline" className="w-full" onClick={() => setParticipantOpen(true)}>Update Profile</Button>
               </CardContent>
             </Card>
 
@@ -347,6 +432,124 @@ export default function ProfilePage() {
                 {saving ? "Saving..." : "Save changes"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Participant Details Dialog (fields aligned with event registration) */}
+        <Dialog open={participantOpen} onOpenChange={setParticipantOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Update Profile</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+              <div className="space-y-2">
+                <Label>First Name</Label>
+                <Input value={participantForm.firstName} onChange={(e) => setParticipantForm((f: any) => ({ ...f, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name</Label>
+                <Input value={participantForm.lastName} onChange={(e) => setParticipantForm((f: any) => ({ ...f, lastName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={participantForm.email} onChange={(e) => setParticipantForm((f: any) => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Mobile</Label>
+                <Input type="tel" value={participantForm.phone} onChange={(e) => setParticipantForm((f: any) => ({ ...f, phone: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={participantForm.gender} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, gender: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Institute Name</Label>
+                <Input value={participantForm.instituteName} onChange={(e) => setParticipantForm((f: any) => ({ ...f, instituteName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={participantForm.type} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="college_student">College Student</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="school_student">School Student</SelectItem>
+                    <SelectItem value="fresher">Fresher</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Domain</Label>
+                <Select value={participantForm.domain} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, domain: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select domain" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="management">Management</SelectItem>
+                    <SelectItem value="engineering">Engineering</SelectItem>
+                    <SelectItem value="arts_science">Arts & Science</SelectItem>
+                    <SelectItem value="medicine">Medicine</SelectItem>
+                    <SelectItem value="law">Law</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label>Bio/Skills</Label>
+                <Textarea value={participantForm.bio} onChange={(e) => setParticipantForm((f: any) => ({ ...f, bio: e.target.value }))} rows={4} />
+              </div>
+              <div className="space-y-2">
+                <Label>Graduating Year</Label>
+                <Select value={participantForm.graduatingYear} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, graduatingYear: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2026">2026</SelectItem>
+                    <SelectItem value="2027">2027</SelectItem>
+                    <SelectItem value="2028">2028</SelectItem>
+                    <SelectItem value="2029">2029</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Course Duration (years)</Label>
+                <Select value={participantForm.courseDuration} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, courseDuration: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="5">5</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Differently Abled</Label>
+                <Select value={participantForm.differentlyAbled} onValueChange={(v) => setParticipantForm((f: any) => ({ ...f, differentlyAbled: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="yes">Yes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Input value={participantForm.location} onChange={(e) => setParticipantForm((f: any) => ({ ...f, location: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setParticipantOpen(false)} disabled={participantSaving}>Cancel</Button>
+              <Button onClick={handleSaveParticipant} disabled={participantSaving} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700">
+                {participantSaving ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </main>
