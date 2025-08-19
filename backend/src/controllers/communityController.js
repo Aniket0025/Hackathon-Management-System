@@ -1,4 +1,7 @@
 const Post = require('../models/Post');
+const Announcement = require('../models/Announcement');
+const Question = require('../models/Question');
+const { uploadBuffer } = require('../utils/cloudinary');
 
 async function listPosts(req, res, next) {
   try {
@@ -34,3 +37,127 @@ async function likePost(req, res, next) {
 }
 
 module.exports = { listPosts, createPost, likePost };
+
+// Announcements
+async function listAnnouncements(req, res, next) {
+  try {
+    const anns = await Announcement.find({}).sort({ pinned: -1, createdAt: -1 }).lean();
+    res.json({ announcements: anns });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createAnnouncement(req, res, next) {
+  try {
+    const { title, body, author, pinned, tags } = req.body || {};
+    if (!title || !body) {
+      return res.status(400).json({ message: 'title and body are required' });
+    }
+    const ann = await Announcement.create({
+      title: String(title).trim(),
+      body: String(body).trim(),
+      author: author ? String(author).trim() : undefined,
+      pinned: !!pinned,
+      tags: Array.isArray(tags) ? tags.map(String) : [],
+    });
+    res.status(201).json({ announcement: ann });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.listAnnouncements = listAnnouncements;
+module.exports.createAnnouncement = createAnnouncement;
+
+// Upload banner for an announcement
+async function uploadAnnouncementBanner(req, res, next) {
+  try {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ message: 'No banner file uploaded' });
+
+    const ann = await Announcement.findById(id);
+    if (!ann) return res.status(404).json({ message: 'Announcement not found' });
+
+    const folder = `announcements/${id}/banner`;
+    const result = await uploadBuffer(req.file.buffer, folder, {
+      transformation: [{ width: 1600, height: 900, crop: 'fill' }],
+      format: 'jpg',
+    });
+
+    ann.bannerUrl = result.secure_url;
+    await ann.save();
+
+    return res.json({ announcement: ann, bannerUrl: ann.bannerUrl });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.uploadAnnouncementBanner = uploadAnnouncementBanner;
+
+// Q&A
+async function listQuestions(req, res, next) {
+  try {
+    const qs = await Question.find({}).sort({ upvotes: -1, createdAt: -1 }).lean();
+    res.json({ questions: qs });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createQuestion(req, res, next) {
+  try {
+    const { title, body, author, tags } = req.body || {};
+    if (!title || !body) {
+      return res.status(400).json({ message: 'title and body are required' });
+    }
+    // derive author from request body or authenticated user
+    let finalAuthor = (author && String(author).trim()) || null;
+    if (!finalAuthor && req.user) {
+      finalAuthor = req.user.name || req.user.username || req.user.email || req.user.id || 'User';
+    }
+    if (!finalAuthor) finalAuthor = 'Anonymous';
+
+    const q = await Question.create({
+      title: String(title).trim(),
+      body: String(body).trim(),
+      author: String(finalAuthor).trim(),
+      tags: Array.isArray(tags) ? tags.map(String) : [],
+    });
+    res.status(201).json({ question: q });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.listQuestions = listQuestions;
+module.exports.createQuestion = createQuestion;
+
+// Add an answer to a question
+async function addAnswer(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { body, author } = req.body || {};
+    if (!body) return res.status(400).json({ message: 'body is required' });
+
+    let finalAuthor = (author && String(author).trim()) || null;
+    if (!finalAuthor && req.user) {
+      finalAuthor = req.user.name || req.user.username || req.user.email || req.user.id || 'User';
+    }
+    if (!finalAuthor) finalAuthor = 'Anonymous';
+
+    const q = await Question.findById(id);
+    if (!q) return res.status(404).json({ message: 'Question not found' });
+
+    q.answers.push({ body: String(body).trim(), author: String(finalAuthor).trim() });
+    await q.save();
+
+    const answer = q.answers[q.answers.length - 1];
+    res.status(201).json({ question: q, answer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.addAnswer = addAnswer;

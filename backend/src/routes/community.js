@@ -1,5 +1,7 @@
 const express = require('express');
-const { listPosts, createPost, likePost } = require('../controllers/communityController');
+const { listPosts, createPost, likePost, listAnnouncements, createAnnouncement, uploadAnnouncementBanner, listQuestions, createQuestion, addAnswer } = require('../controllers/communityController');
+const { auth, requireRoles } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -11,5 +13,15 @@ router.post('/posts', createPost);
 
 // Like a post
 router.post('/posts/:id/like', likePost);
+
+// Announcements
+router.get('/announcements', auth(false), listAnnouncements);
+router.post('/announcements', auth(true), requireRoles('organizer', 'admin'), createAnnouncement);
+router.post('/announcements/:id/banner', auth(true), requireRoles('organizer', 'admin'), upload.single('banner'), uploadAnnouncementBanner);
+
+// Q&A
+router.get('/questions', auth(false), listQuestions);
+router.post('/questions', auth(true), createQuestion);
+router.post('/questions/:id/answers', auth(true), addAnswer);
 
 module.exports = router;
