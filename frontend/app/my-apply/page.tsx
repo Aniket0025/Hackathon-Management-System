@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,6 +54,7 @@ type MyRegistration = {
 }
 
 export default function MyApplyPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
@@ -311,15 +313,21 @@ export default function MyApplyPage() {
           </CardContent>
         </Card>
 
-        {/* Applied Events */}
+        {/* Enrolled in Events */}
         <div className="mt-4 space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900">Applied Events</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Enrolled in Events</h2>
           {appliedEvents.length === 0 ? (
             <div className="text-sm text-slate-600">No event applications yet.</div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {appliedEvents.map((e) => (
-                <Card key={e.id} className="hover:shadow-sm transition-shadow">
+                <Card
+                  key={e.id}
+                  className="hover:shadow-sm transition-shadow cursor-pointer"
+                  onClick={() => router.push(`/events/${e.id}/submission`)}
+                  role="link"
+                  aria-label={`Open submission for ${e.name}`}
+                >
                   <CardHeader>
                     <CardTitle className="text-base flex items-center justify-between">
                       <span className="truncate" title={e.name}>{e.name}</span>
@@ -327,105 +335,7 @@ export default function MyApplyPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Link href={`/events/${e.id}`} className="text-cyan-700 hover:underline">View event</Link>
-                    {(() => {
-                      const teams = teamsByEvent.get(e.id) || []
-                      if (teams.length === 0) return null
-                      return (
-                        <details className="mt-3">
-                          <summary className="text-cyan-700 hover:underline cursor-pointer">View team details</summary>
-                          <div className="mt-2 space-y-3 text-sm">
-                            {teams.map((t) => (
-                              <div key={t._id} className="rounded border p-2">
-                                <div className="font-medium">{t.teamInfo?.teamName || "Unnamed Team"}</div>
-                                {Array.isArray(t.teamInfo?.members) && t.teamInfo!.members!.length > 0 ? (
-                                  <ul className="list-disc pl-5 mt-1">
-                                    {t.teamInfo!.members!.map((m, i) => (
-                                      <li key={i}>
-                                        {[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email || "Member"}
-                                        {m.email ? ` - ${m.email}` : ""}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <div className="text-slate-500">No members listed</div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )
-                    })()}
-
-                    {/* Project Submission */}
-                    <div className="mt-6 border-t pt-4">
-                      <div className="font-semibold text-slate-900 mb-2">Project Submission</div>
-                      {/* form state pre-seeded via useEffect when regs load */}
-                      <div className="grid gap-3">
-                        {/* Team selector when multiple teams */}
-                        {(() => {
-                          const teams = teamsByEvent.get(e.id) || []
-                          if (teams.length <= 1) return null
-                          const value = formByEvent[e.id]?.teamName || teams[0]?.teamInfo?.teamName || ''
-                          return (
-                            <div>
-                              <label className="block text-sm text-slate-700 mb-1">Team</label>
-                              <select
-                                className="border rounded-md px-3 py-2 w-full text-sm"
-                                value={value}
-                                onChange={(ev) => updateForm(e.id, 'teamName', ev.target.value)}
-                              >
-                                {teams.map((t) => (
-                                  <option key={t._id} value={t.teamInfo?.teamName || ''}>{t.teamInfo?.teamName || 'Unnamed Team'}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )
-                        })()}
-
-                        <div>
-                          <label className="block text-sm text-slate-700 mb-1">Title</label>
-                          <Input value={formByEvent[e.id]?.title || ''} onChange={(ev) => updateForm(e.id, 'title', ev.target.value)} placeholder="Project Title" />
-                        </div>
-                        <div>
-                          <label className="block text-sm text-slate-700 mb-1">Description</label>
-                          <textarea
-                            className="border rounded-md px-3 py-2 w-full text-sm"
-                            rows={3}
-                            value={formByEvent[e.id]?.description || ''}
-                            onChange={(ev) => updateForm(e.id, 'description', ev.target.value)}
-                            placeholder="Short description"
-                          />
-                        </div>
-                        <div className="grid sm:grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-sm text-slate-700 mb-1">GitHub Repo</label>
-                            <Input value={formByEvent[e.id]?.repoUrl || ''} onChange={(ev) => updateForm(e.id, 'repoUrl', ev.target.value)} placeholder="https://github.com/..." />
-                          </div>
-                          <div>
-                            <label className="block text-sm text-slate-700 mb-1">Docs</label>
-                            <Input value={formByEvent[e.id]?.docsUrl || ''} onChange={(ev) => updateForm(e.id, 'docsUrl', ev.target.value)} placeholder="Docs link (Notion, Google Doc, etc.)" />
-                          </div>
-                          <div>
-                            <label className="block text-sm text-slate-700 mb-1">Video</label>
-                            <Input value={formByEvent[e.id]?.videoUrl || ''} onChange={(ev) => updateForm(e.id, 'videoUrl', ev.target.value)} placeholder="Demo video URL (YouTube, Drive)" />
-                          </div>
-                        </div>
-
-                        {formByEvent[e.id]?.error && (
-                          <div className="text-sm text-red-600 border border-red-200 rounded p-2 bg-red-50">{formByEvent[e.id]?.error}</div>
-                        )}
-                        {formByEvent[e.id]?.message && (
-                          <div className="text-sm text-green-700 border border-green-200 rounded p-2 bg-green-50">{formByEvent[e.id]?.message}</div>
-                        )}
-
-                        <div>
-                          <Button onClick={() => submitProject(e.id)} disabled={!!formByEvent[e.id]?.submitting}>
-                            {formByEvent[e.id]?.submitting ? 'Submitting…' : 'Submit Project'}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    <div className="text-sm text-slate-500">Click to open submission</div>
                   </CardContent>
                 </Card>
               ))}

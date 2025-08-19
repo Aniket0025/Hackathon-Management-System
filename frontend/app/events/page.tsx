@@ -165,9 +165,6 @@ export default function EventsPage() {
                   <Button asChild size="sm" variant="outline" className="transition-colors">
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
-                  <Button asChild size="sm" variant="secondary" className="transition-colors">
-                    <Link prefetch href={`/leaderboard?eventId=${ev._id}`}>Leaderboard</Link>
-                  </Button>
                 </CardContent>
               </Card>
             ))}

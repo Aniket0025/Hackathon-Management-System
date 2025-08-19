@@ -36,7 +36,7 @@ interface NavigationProps {
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/events", label: "Events", icon: Calendar },
-  { href: "/teams", label: "Teams", icon: Users },
+  { href: "/teams", label: "Teaming", icon: Users },
   { href: "/my-apply", label: "My Apply", icon: Users },
   { href: "/community", label: "Community", icon: MessageSquare },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
@@ -165,7 +165,14 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
                 }`}
               >
                 <item.icon className="w-4 h-4" />
-                {item.label}
+                {item.href === "/teams" ? (
+                  <span className="flex flex-col leading-tight">
+                    <span>{item.label}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-cyan-600/80">AI powered</span>
+                  </span>
+                ) : (
+                  item.label
+                )}
               </Link>
             ))}
           </nav>
