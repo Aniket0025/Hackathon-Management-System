@@ -18,15 +18,35 @@ export default function CommunityPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [open, setOpen] = useState(false)
+  const [isAuthed, setIsAuthed] = useState(false)
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
   const [body, setBody] = useState("")
   const canSubmit = useMemo(() => title.trim().length > 2 && author.trim().length > 1, [title, author])
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
 
   // UI utilities
   const [q, setQ] = useState("")
   const [sort, setSort] = useState<"newest" | "likes">("newest")
   const [onlyWithBody, setOnlyWithBody] = useState(false)
+
+  useEffect(() => {
+    // Determine auth once on mount
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      setIsAuthed(!!token)
+      // hydrate liked posts
+      const raw = typeof window !== "undefined" ? localStorage.getItem("liked_posts") : null
+      if (raw) {
+        try {
+          const arr = JSON.parse(raw)
+          if (Array.isArray(arr)) setLikedPosts(new Set(arr.map(String)))
+        } catch { /* ignore */ }
+      }
+    } catch {
+      setIsAuthed(false)
+    }
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -77,14 +97,44 @@ export default function CommunityPage() {
   }
 
   const likePost = async (id: string) => {
+    // require auth
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+        return
+      }
+    } catch {
+      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+      return
+    }
+
+    // prevent multiple likes per user (client-side)
+    if (likedPosts.has(id)) return
+
     // optimistic update
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: (p.likes || 0) + 1 } : p)))
+    setLikedPosts((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      try {
+        localStorage.setItem("liked_posts", JSON.stringify(Array.from(next)))
+      } catch { /* ignore */ }
+      return next
+    })
+
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
       await fetch(`${base}/api/community/posts/${id}/like`, { method: "POST" })
     } catch (_) {
       // revert on error
       setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, (p.likes || 1) - 1) } : p)))
+      setLikedPosts((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        try { localStorage.setItem("liked_posts", JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+        return next
+      })
     }
   }
 
@@ -133,9 +183,23 @@ export default function CommunityPage() {
           </p>
           <div className="mt-6 flex justify-center">
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-cyan-600 hover:bg-cyan-700 transition-colors"><MessageSquare className="w-4 h-4 mr-2" />New Post</Button>
-              </DialogTrigger>
+              <Button
+                className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                onClick={() => {
+                  try {
+                    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                    if (!token) {
+                      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                      return
+                    }
+                    setOpen(true)
+                  } catch {
+                    window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                  }
+                }}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />New Post
+              </Button>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create a new post</DialogTitle>
@@ -226,8 +290,9 @@ export default function CommunityPage() {
                           variant="default"
                           onClick={() => likePost(p.id)}
                           className="shadow-xs hover:shadow-sm"
+                          disabled={likedPosts.has(p.id)}
                         >
-                          <ThumbsUp className="w-4 h-4 mr-2" /> Like
+                          <ThumbsUp className="w-4 h-4 mr-2" /> {likedPosts.has(p.id) ? "Liked" : "Like"}
                         </Button>
                       </div>
                     </CardContent>

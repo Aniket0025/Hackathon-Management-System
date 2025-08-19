@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 
 interface NavigationProps {
   currentPath?: string
@@ -44,7 +45,14 @@ const NAV_ITEMS = [
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ] as const
 
-const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => {
+const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
+  const pathname = usePathname()
+  const activePath = currentPath ?? pathname ?? "/"
+  const isActive = (href: string) => {
+    if (href === "/") return activePath === "/"
+    return activePath === href || activePath.startsWith(href + "/")
+  }
+
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   // simple demo notifications; replace with API later
   const [notifItems, setNotifItems] = useState<{ id: string; title: string; time: string; read?: boolean }[]>([
@@ -137,9 +145,11 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
   }
   const clearAll = () => setNotifItems([])
 
-  // Hide "My Apply" for organizers
+  // Hide specific items for unauthenticated users; also keep organizer-specific rules
   const visibleItems = navigationItems.filter((item) => {
+    if (!isAuthed && (item.href === '/teams' || item.href === '/my-apply' || item.href === '/analytics')) return false
     if (role === 'organizer' && (item.href === '/my-apply' || item.href === '/teams')) return false
+    if (role === 'judge' && (item.href === '/teams' || item.href === '/my-apply')) return false
     return true
   })
 
@@ -171,7 +181,7 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                  currentPath === item.href
+                  isActive(item.href)
                     ? "bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700 font-medium"
                     : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50"
                 }`}
@@ -191,50 +201,52 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative min-h-[40px] min-w-[40px] touch-manipulation">
-                  <Bell className="w-4 h-4" />
-                  {notifications > 0 && (
-                    <Badge className="absolute -top-1 -right-1 w-4 md:w-5 h-4 md:h-5 p-0 flex items-center justify-center text-xs bg-gradient-to-r from-red-500 to-pink-500">
-                      {notifications}
-                    </Badge>
+            {/* Notifications (only for authenticated users) */}
+            {isAuthed && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="relative min-h-[40px] min-w-[40px] touch-manipulation">
+                    <Bell className="w-4 h-4" />
+                    {notifications > 0 && (
+                      <Badge className="absolute -top-1 -right-1 w-4 md:w-5 h-4 md:h-5 p-0 flex items-center justify-center text-xs bg-gradient-to-r from-red-500 to-pink-500">
+                        {notifications}
+                      </Badge>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {notifItems.length > 0 ? (
+                      <button className="text-xs text-cyan-700 hover:underline" onClick={markAllRead}>
+                        Mark all read
+                      </button>
+                    ) : null}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifItems.length === 0 ? (
+                    <div className="px-3 py-6 text-sm text-slate-500 text-center">You're all caught up!</div>
+                  ) : (
+                    <div className="max-h-80 overflow-auto">
+                      {notifItems.map((n) => (
+                        <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5">
+                          <span className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.title}</span>
+                          <span className="text-xs text-slate-500">{n.time}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
                   )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel className="flex items-center justify-between">
-                  <span>Notifications</span>
-                  {notifItems.length > 0 ? (
-                    <button className="text-xs text-cyan-700 hover:underline" onClick={markAllRead}>
-                      Mark all read
-                    </button>
-                  ) : null}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {notifItems.length === 0 ? (
-                  <div className="px-3 py-6 text-sm text-slate-500 text-center">You're all caught up!</div>
-                ) : (
-                  <div className="max-h-80 overflow-auto">
-                    {notifItems.map((n) => (
-                      <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5">
-                        <span className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.title}</span>
-                        <span className="text-xs text-slate-500">{n.time}</span>
+                  {notifItems.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="justify-center text-red-600" onClick={clearAll}>
+                        Clear all
                       </DropdownMenuItem>
-                    ))}
-                  </div>
-                )}
-                {notifItems.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="justify-center text-red-600" onClick={clearAll}>
-                      Clear all
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Auth Actions (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
@@ -305,16 +317,15 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="lg:hidden border-t bg-white/95 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200">
-            <nav className="py-4 space-y-1">
+          <div className="lg:hidden px-4 sm:px-6 pb-4">
+            <nav className="grid gap-1">
               {visibleItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px] touch-manipulation ${
-                    currentPath === item.href
+                    isActive(item.href)
                       ? "bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700 font-medium"
                       : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 active:bg-cyan-100"
                   }`}
@@ -324,51 +335,37 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
                   <span className="font-medium">{item.label}</span>
                 </Link>
               ))}
-
-              {/* Auth Actions (Mobile) */}
-              <div className="px-4 pt-2 flex gap-2">
-                {isAuthed ? (
-                  <>
-                    <Link href="/profile" className="flex-1" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="outline" className="w-full min-h-[44px]">
-                        <User className="w-4 h-4 mr-2" /> Profile
-                      </Button>
-                    </Link>
-                    <Button className="flex-1 min-h-[44px]" onClick={() => { setIsMenuOpen(false); handleLogout(); }}>
-                      Logout
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/auth/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="outline" className="w-full min-h-[44px]">Sign in</Button>
-                    </Link>
-                    <Link href="/auth/register" className="flex-1" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full min-h-[44px]">Sign up</Button>
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              <div className="border-t pt-4 mt-4">
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 active:bg-cyan-100 rounded-lg transition-all duration-200 min-h-[48px] touch-manipulation"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <User className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium">Profile</span>
-                </Link>
-                <Link
-                  href="/settings"
-                  className="flex items-center gap-3 px-4 py-3 text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 active:bg-cyan-100 rounded-lg transition-all duration-200 min-h-[48px] touch-manipulation"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Settings className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-medium">Settings</span>
-                </Link>
-              </div>
             </nav>
+
+            <div className="border-t pt-4 mt-4">
+              {isAuthed ? (
+                <div className="flex items-center gap-3">
+                  <Link href="/profile" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full min-h-[44px]">
+                      <User className="w-4 h-4 mr-2" /> Profile
+                    </Button>
+                  </Link>
+                  <Button
+                    className="flex-1 min-h-[44px]"
+                    onClick={() => {
+                      setIsMenuOpen(false)
+                      handleLogout()
+                    }}
+                  >
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Link href="/auth/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full min-h-[44px]">Sign in</Button>
+                  </Link>
+                  <Link href="/auth/register" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="w-full min-h-[44px]">Sign up</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

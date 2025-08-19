@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<any>({
     name: "",
+    role: "participant",
     organization: "",
     location: "",
     phone: "",
@@ -94,6 +95,7 @@ export default function ProfilePage() {
     if (me) {
       setForm({
         name: me.name || "",
+        role: (me as any).role || "participant",
         organization: (me as any).organization || "",
         location: (me as any).location || "",
         phone: (me as any).phone || "",
