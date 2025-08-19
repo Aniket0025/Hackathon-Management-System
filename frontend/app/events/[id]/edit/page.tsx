@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,10 +15,13 @@ import { DayPicker } from "react-day-picker"
 import { format } from "date-fns"
 import "react-day-picker/dist/style.css"
 
-export default function CreateEventPage() {
+export default function EditEventPage() {
+  const params = useParams<{ id: string }>()
+  const id = params?.id
   const router = useRouter()
   const [role, setRole] = useState<string | null>(null)
   const [loadingMe, setLoadingMe] = useState(true)
+  const [loadingEvent, setLoadingEvent] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openStart, setOpenStart] = useState(false)
@@ -44,8 +47,8 @@ export default function CreateEventPage() {
     contactPhone: "",
     registrationLimit: "",
     bannerUrl: "",
-    themes: "", // comma-separated
-    tracks: "", // comma-separated
+    themes: "",
+    tracks: "",
     rules: "",
     rounds: [] as Array<{ title: string; description: string; startDate: string; endDate: string }>,
     prizes: [] as Array<{ type: 'cash' | 'certificate' | 'goodies' | 'other'; title: string; amount?: string }>,
@@ -53,37 +56,86 @@ export default function CreateEventPage() {
   })
 
   useEffect(() => {
-    const checkRole = async () => {
+    const init = async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-        if (!token) {
-          router.replace("/auth/login")
-          return
-        }
+        if (!token) { router.replace("/auth/login"); return }
         const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-        const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-        if (!res.ok) {
-          localStorage.removeItem("token")
-          router.replace("/auth/login")
-          return
-        }
-        const data = await res.json()
-        setRole(data?.user?.role || null)
-        if (data?.user?.role !== "organizer") {
-          router.replace("/events")
-        }
+        const meRes = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!meRes.ok) { localStorage.removeItem("token"); router.replace("/auth/login"); return }
+        const me = await meRes.json().catch(() => ({}))
+        setRole(me?.user?.role || null)
+        if (me?.user?.role !== "organizer") { router.replace(`/events/${id}`); return }
       } catch (e: any) {
         setError(e?.message || "Failed to verify user")
       } finally {
         setLoadingMe(false)
       }
     }
-    checkRole()
-  }, [router])
+    init()
+  }, [router, id])
+
+  useEffect(() => {
+    const loadEvent = async () => {
+      if (!id) return
+      try {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/events/${id}`)
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || "Failed to load event")
+        const ev = data.event
+        // Organizer ownership check (best-effort; backend should also enforce)
+        // If organizer mismatch, redirect back
+        // This assumes ev.organizer._id exists when populated
+        // If not available, we still allow edit UI; server will enforce on PUT
+        setForm({
+          title: ev.title || "",
+          description: ev.description || "",
+          startDate: toLocalDateStr(new Date(ev.startDate)),
+          endDate: toLocalDateStr(new Date(ev.endDate)),
+          location: ev.location || "",
+          mode: ev.mode || "onsite",
+          fees: typeof ev.fees === 'number' ? String(ev.fees) : "",
+          website: ev.website || "",
+          registrationDeadline: ev.registrationDeadline ? toLocalDateStr(new Date(ev.registrationDeadline)) : "",
+          participantType: ev.participantType || "individual",
+          minTeamSize: typeof ev.minTeamSize === 'number' ? String(ev.minTeamSize) : "",
+          maxTeamSize: typeof ev.maxTeamSize === 'number' ? String(ev.maxTeamSize) : "",
+          contactName: ev.contactName || "",
+          contactEmail: ev.contactEmail || "",
+          contactPhone: ev.contactPhone || "",
+          registrationLimit: typeof ev.registrationLimit === 'number' ? String(ev.registrationLimit) : "",
+          bannerUrl: ev.bannerUrl || "",
+          themes: Array.isArray(ev.themes) ? ev.themes.join(", ") : "",
+          tracks: Array.isArray(ev.tracks) ? ev.tracks.join(", ") : "",
+          rules: ev.rules || "",
+          rounds: Array.isArray(ev.rounds) ? ev.rounds.map((r: any) => ({
+            title: r.title || "",
+            description: r.description || "",
+            startDate: toLocalDateStr(new Date(r.startDate)),
+            endDate: toLocalDateStr(new Date(r.endDate)),
+          })) : [],
+          prizes: Array.isArray(ev.prizes) ? ev.prizes.map((p: any) => ({
+            type: p.type || 'cash',
+            title: p.title || "",
+            amount: typeof p.amount === 'number' ? String(p.amount) : "",
+          })) : [],
+          sponsors: Array.isArray(ev.sponsors) ? ev.sponsors.map((s: any) => ({
+            title: s.title || "",
+            bannerUrl: s.bannerUrl || "",
+          })) : [],
+        })
+      } catch (e: any) {
+        setError(e?.message || "Failed to load event")
+      } finally {
+        setLoadingEvent(false)
+      }
+    }
+    loadEvent()
+  }, [id])
 
   const update = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
 
-  // value is stored as local 'yyyy-MM-dd'
   const parseLocalDateString = (s?: string) => {
     if (!s) return null
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -114,7 +166,6 @@ export default function CreateEventPage() {
       setError("End date must be after start date.")
       return
     }
-    // Registration deadline is independent of start/end dates
     if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
       setError("Please provide a valid contact email.")
       return
@@ -126,42 +177,24 @@ export default function CreateEventPage() {
         return
       }
     }
-
-    // Validate team size if group events
     if (form.participantType === "group") {
       const min = form.minTeamSize === "" ? 1 : Number(form.minTeamSize)
       const max = form.maxTeamSize === "" ? min : Number(form.maxTeamSize)
-      if (!Number.isInteger(min) || min < 1) {
-        setError("Minimum team size must be an integer of at least 1.")
-        return
-      }
-      if (!Number.isInteger(max) || max < min) {
-        setError("Maximum team size must be an integer greater than or equal to minimum.")
-        return
-      }
+      if (!Number.isInteger(min) || min < 1) { setError("Minimum team size must be an integer of at least 1."); return }
+      if (!Number.isInteger(max) || max < min) { setError("Maximum team size must be an integer greater than or equal to minimum."); return }
     }
-
-    // Validate fees (0 means free)
     if (form.fees !== "") {
       const fee = Number(form.fees)
-      if (!Number.isFinite(fee) || fee < 0) {
-        setError("Fees must be a non-negative number (0 for free).")
-        return
-      }
+      if (!Number.isFinite(fee) || fee < 0) { setError("Fees must be a non-negative number (0 for free)."); return }
     }
-
-    // No banner URL format restrictions
 
     setSaving(true)
     try {
       const token = localStorage.getItem("token")
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-      const res = await fetch(`${base}/api/events`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch(`${base}/api/events/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: form.title,
           description: form.description || undefined,
@@ -180,43 +213,31 @@ export default function CreateEventPage() {
           contactPhone: form.contactPhone || undefined,
           registrationLimit: form.registrationLimit !== "" ? Number(form.registrationLimit) : undefined,
           bannerUrl: form.bannerUrl || undefined,
-          themes: form.themes
-            ? form.themes.split(",").map((s) => s.trim()).filter(Boolean)
-            : undefined,
-          tracks: form.tracks
-            ? form.tracks.split(",").map((s) => s.trim()).filter(Boolean)
-            : undefined,
+          themes: form.themes ? form.themes.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          tracks: form.tracks ? form.tracks.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
           rules: form.rules || undefined,
-          rounds: form.rounds && form.rounds.length
-            ? form.rounds.map((r) => ({
-                title: r.title,
-                description: r.description || undefined,
-                startDate: parseLocalDateString(r.startDate)!.toISOString(),
-                endDate: parseLocalDateString(r.endDate)!.toISOString(),
-              }))
-            : undefined,
-          prizes: form.prizes && form.prizes.length
-            ? form.prizes.map((p) => ({
-                type: p.type,
-                title: p.title,
-                amount: p.type === 'cash' && p.amount ? Number(p.amount) : undefined,
-              }))
-            : undefined,
-          sponsors: form.sponsors && form.sponsors.length
-            ? form.sponsors.map((s) => ({
-                title: s.title,
-                bannerUrl: s.bannerUrl || undefined,
-              }))
-            : undefined,
+          rounds: form.rounds && form.rounds.length ? form.rounds.map((r) => ({
+            title: r.title,
+            description: r.description || undefined,
+            startDate: parseLocalDateString(r.startDate)!.toISOString(),
+            endDate: parseLocalDateString(r.endDate)!.toISOString(),
+          })) : undefined,
+          prizes: form.prizes && form.prizes.length ? form.prizes.map((p) => ({
+            type: p.type,
+            title: p.title,
+            amount: p.type === 'cash' && p.amount ? Number(p.amount) : undefined,
+          })) : undefined,
+          sponsors: form.sponsors && form.sponsors.length ? form.sponsors.map((s) => ({
+            title: s.title,
+            bannerUrl: s.bannerUrl || undefined,
+          })) : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to create event")
-      }
-      router.replace("/events")
+      if (!res.ok) throw new Error(data?.message || "Failed to update event")
+      router.replace(`/events/${id}`)
     } catch (e: any) {
-      setError(e?.message || "Failed to create event")
+      setError(e?.message || "Failed to update event")
     } finally {
       setSaving(false)
     }
@@ -224,17 +245,17 @@ export default function CreateEventPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
-      <AdvancedNavigation currentPath="/events/create" />
+      <AdvancedNavigation currentPath={`/events/${id}/edit`} />
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         <Card className="max-w-2xl mx-auto glass-card">
           <CardHeader>
-            <CardTitle>Create Event</CardTitle>
+            <CardTitle>Edit Event</CardTitle>
           </CardHeader>
           <CardContent>
-            {loadingMe ? (
+            {loadingMe || loadingEvent ? (
               <div className="text-slate-600">Loading…</div>
             ) : role !== "organizer" ? (
-              <div className="text-slate-600">You must be an organizer to create events.</div>
+              <div className="text-slate-600">You must be the organizer to edit this event.</div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && <div className="text-red-600 text-sm" role="alert">{error}</div>}
@@ -275,7 +296,6 @@ export default function CreateEventPage() {
                                   const start = new Date(d.getFullYear(), d.getMonth(), d.getDate())
                                   if (end < start) update("endDate", "")
                                 }
-                                // Do not auto-clear registration deadline based on start date
                               }}
                             />
                           </Popover.Content>
@@ -300,7 +320,6 @@ export default function CreateEventPage() {
                               onSelect={(d) => {
                                 update("endDate", toLocalDateStr(d || undefined))
                                 setOpenEnd(false)
-                                // Do not auto-clear registration deadline based on end date
                               }}
                             />
                           </Popover.Content>
@@ -400,20 +419,6 @@ export default function CreateEventPage() {
                     <div className="space-y-2">
                       <Label htmlFor="description">Detailed Description</Label>
                       <Textarea id="description" value={form.description} onChange={(e) => update("description", e.target.value)} />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="contactName">Organizer Contact Name</Label>
-                        <Input id="contactName" value={form.contactName} onChange={(e) => update("contactName", e.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contactEmail">Organizer Contact Email</Label>
-                        <Input id="contactEmail" type="email" value={form.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contactPhone">Organizer Contact Phone</Label>
-                        <Input id="contactPhone" value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} />
-                      </div>
                     </div>
                     <div className="pt-2 flex justify-end">
                       <Button type="button" onClick={() => setActiveTab("rounds")} className="bg-gradient-to-r from-cyan-600 to-blue-600">
@@ -558,7 +563,7 @@ export default function CreateEventPage() {
                     </div>
                     <div className="pt-2">
                       <Button type="submit" disabled={saving} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600">
-                        {saving ? "Creating…" : "Create Event"}
+                        {saving ? "Saving…" : "Save Changes"}
                       </Button>
                     </div>
                   </TabsContent>

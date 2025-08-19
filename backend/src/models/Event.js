@@ -7,6 +7,8 @@ const eventSchema = new mongoose.Schema(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     location: { type: String },
+    // Event mode: how participants attend
+    mode: { type: String, enum: ['online', 'onsite', 'hybrid'], default: 'onsite' },
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ['draft', 'upcoming', 'ongoing', 'completed'], default: 'draft' },
     fees: { type: Number, default: 0 },
@@ -40,9 +42,9 @@ const eventSchema = new mongoose.Schema(
     prizes: [
       new mongoose.Schema(
         {
+          type: { type: String, enum: ['cash', 'certificate', 'goodies', 'other'], default: 'cash' },
           title: { type: String, required: true },
           amount: { type: Number },
-          description: { type: String },
         },
         { _id: false }
       ),
@@ -51,7 +53,6 @@ const eventSchema = new mongoose.Schema(
       new mongoose.Schema(
         {
           title: { type: String, required: true },
-          description: { type: String },
           bannerUrl: { type: String },
         },
         { _id: false }

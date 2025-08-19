@@ -30,8 +30,8 @@ type EventItem = {
   tracks?: string[]
   rules?: string
   rounds?: Array<{ title: string; description?: string; startDate: string; endDate: string }>
-  prizes?: Array<{ title: string; amount?: number; description?: string }>
-  sponsors?: Array<{ title: string; description?: string; bannerUrl?: string }>
+  prizes?: Array<{ type: 'cash' | 'certificate' | 'goodies' | 'other'; title: string; amount?: number }>
+  sponsors?: Array<{ title: string; bannerUrl?: string }>
 }
 
 export default function EventDetailsPage() {
@@ -107,7 +107,27 @@ export default function EventDetailsPage() {
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
-    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
+    try {
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
+    } catch {
+      return d.toISOString().slice(0, 10)
+    }
+  }
+
+  const daysLeft = (iso: string) => {
+    const now = new Date()
+    const d = new Date(iso)
+    const diffMs = d.getTime() - now.getTime()
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  }
+
+  const deadlineBadge = (iso: string) => {
+    const d = daysLeft(iso)
+    if (d <= 0) return <span className="text-xs font-semibold text-slate-500">Closed</span>
+    const base = "text-xs font-semibold inline-block"
+    if (d <= 3) return <span className={`${base} text-red-600 blink-red-black`}>{`${d} days left`}</span>
+    if (d <= 7) return <span className={`${base} text-amber-600`}>{`${d} days left`}</span>
+    return <span className={`${base} text-emerald-600`}>{`${d} days left`}</span>
   }
 
   return (
@@ -149,7 +169,7 @@ export default function EventDetailsPage() {
         ) : (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
-              {event.bannerUrl && (
+              {event.bannerUrl ? (
                 <div className="-mx-6 -mt-6 mb-4 relative">
                   <img src={event.bannerUrl} alt={event.title} className="w-full h-56 object-cover rounded-t-md" />
                   <div className="absolute top-3 left-3">
@@ -160,16 +180,20 @@ export default function EventDetailsPage() {
                     </Link>
                   </div>
                 </div>
-              )}
-              <div className="flex items-center justify-between gap-4">
-                <CardTitle className="text-2xl">{event.title}</CardTitle>
-                <Badge variant="outline">{event.status}</Badge>
+              ) : null}
+              <div className="flex items-start justify-between gap-4">
+                <CardTitle className="text-3xl font-semibold tracking-tight leading-snug">{event.title}</CardTitle>
+                <div className="text-right">
+                  <div className="text-sm text-slate-900 font-medium">{fmtDate(event.startDate)} - {fmtDate(event.endDate)}</div>
+                  {event.registrationDeadline && (
+                    <div className="mt-0.5">{deadlineBadge(event.registrationDeadline)}</div>
+                  )}
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               {event.description && <p className="text-slate-700 whitespace-pre-wrap">{event.description}</p>}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
-                <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {fmtDate(event.startDate)} - {fmtDate(event.endDate)}</div>
                 {event.location && (
                   <div className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {event.location}</div>
                 )}
@@ -182,57 +206,106 @@ export default function EventDetailsPage() {
                 {event.website && (
                   <div className="md:col-span-1 truncate">Website: <a className="text-cyan-700 underline" href={event.website} target="_blank" rel="noopener noreferrer">{event.website}</a></div>
                 )}
-                {event.registrationDeadline && (
-                  <div className="md:col-span-1">Registration Deadline: {fmtDate(event.registrationDeadline)}</div>
-                )}
                 {event.participantType && (
                   <div className="md:col-span-1">Participant Type: {event.participantType === "individual" ? "Individual" : "Group"}</div>
                 )}
                 {typeof event.registrationLimit === "number" && (
                   <div className="md:col-span-1">Registration Limit: {event.registrationLimit}</div>
                 )}
-                {(event.contactName || event.contactEmail || event.contactPhone) && (
-                  <div className="md:col-span-2 space-y-1">
-                    <div className="font-medium">Organizer Contact</div>
-                    {event.contactName && <div>Name: {event.contactName}</div>}
-                    {event.contactEmail && <div>Email: <a className="text-cyan-700 underline" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></div>}
-                    {event.contactPhone && <div>Phone: {event.contactPhone}</div>}
+              </div>
+              <div className="border-t pt-6" />
+              {/* Stages & Timeline */}
+              {event.rounds && event.rounds.length > 0 && (
+                <div className="pt-6">
+                  <h3 className="text-lg font-semibold mb-3">Stages & Timeline</h3>
+                  <div className="relative">
+                    {/* vertical line */}
+                    <div className="absolute left-7 top-0 bottom-0 w-px bg-slate-200" aria-hidden />
+                    <div className="space-y-5">
+                      {event.rounds.map((r, idx) => {
+                        const sd = new Date(r.startDate)
+                        const day = sd.getDate()
+                        const month = sd.toLocaleString(undefined, { month: 'short' })
+                        return (
+                          <div key={idx} className="grid grid-cols-[56px_1fr] gap-3 items-start">
+                            {/* date badge + dot */}
+                            <div className="relative flex flex-col items-center">
+                              <div className="w-12 h-12 rounded-lg bg-white border shadow-sm flex flex-col items-center justify-center">
+                                <div className="text-xs font-medium text-slate-500">{month}</div>
+                                <div className="text-lg font-bold text-slate-800 leading-none">{day}</div>
+                              </div>
+                              <div className="mt-2 w-3 h-3 rounded-full bg-cyan-600 ring-4 ring-cyan-100" />
+                            </div>
+                            {/* content card */}
+                            <div className="bg-white/80 border rounded-lg p-4 shadow-sm">
+                              <div className="text-base font-semibold">{r.title}</div>
+                              <div className="mt-1 text-sm text-slate-700">Start: {fmtDate(r.startDate)} · End: {fmtDate(r.endDate)}</div>
+                              {r.description && (
+                                <div className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{r.description}</div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className="pt-2">
-                {role !== 'organizer' && (
-                  <Button
-                    className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
-                    onClick={() => {
-                      try {
-                        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-                        const nextUrl = `/events/${event._id}/register`
-                        if (!token) {
-                          router.push(`/auth/login?next=${encodeURIComponent(nextUrl)}`)
-                          return
-                        }
-                        router.push(nextUrl)
-                      } catch {
-                        router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}/register`)}`)
-                      }
-                    }}
-                  >
-                    Register
-                  </Button>
-                )}
-                {role === 'organizer' && (
-                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                    <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
-                  </Button>
-                )}
-              </div>
-
-              {/* Team Performance subsection */}
+                </div>
+              )}
+              <div className="border-t pt-6" />
+            {/* Prizes */}
+            {event.prizes && event.prizes.length > 0 && (
               <div className="pt-6">
-                <div className="flex items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-semibold mb-3">Prizes</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {event.prizes.map((p, idx) => (
+                    <div key={idx} className="border rounded-lg p-4 bg-white/70 hover:shadow-sm transition-all">
+                      <div className="text-base font-semibold flex items-center gap-2">
+                        {p.title}
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border">{p.type}</span>
+                      </div>
+                      {typeof p.amount === 'number' && (
+                        <div className="text-sm text-slate-700">Amount: {p.amount}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+              <div className="border-t pt-6" />
+            {/* Sponsors / Partners */}
+            {event.sponsors && event.sponsors.length > 0 && (
+              <div className="pt-6">
+                <h3 className="text-lg font-semibold mb-3">Sponsors / Partners</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {event.sponsors.map((s, idx) => (
+                    <div key={idx} className="border rounded-lg p-4 flex gap-3 items-start bg-white/70 hover:bg-white hover:shadow-sm transition">
+                      {s.bannerUrl && (
+                        <img src={s.bannerUrl} alt={s.title} className="w-16 h-16 object-contain rounded bg-white border" />
+                      )}
+                      <div className="space-y-1">
+                        <div className="text-base font-semibold">{s.title}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+              <div className="border-t pt-6" />
+            {/* Organizer Contact moved above Teams */}
+            {(event.contactName || event.contactEmail || event.contactPhone) && (
+              <div className="pt-6 md:col-span-2 space-y-1">
+                <div className="font-medium">Organizer Contact</div>
+                {event.contactName && <div>Name: {event.contactName}</div>}
+                {event.contactEmail && <div>Email: <a className="text-cyan-700 underline" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></div>}
+                {event.contactPhone && <div>Phone: {event.contactPhone}</div>}
+              </div>
+            )}
+              <div className="border-t pt-6" />
+            {/* Team Performance subsection moved below Organizer Contact */}
+            <div className="pt-6">
+              <div className="flex items-center mb-3">
+                <div className="flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-500" />
                 </div>
               </div>
               {teamsError ? (
@@ -242,7 +315,7 @@ export default function EventDetailsPage() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {topTeams.map((t) => (
-                    <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between bg-white/70 hover:bg-white hover:shadow-sm transition">
                       <div className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-500" />
                         <span className="font-medium">{t.name}</span>
@@ -253,44 +326,39 @@ export default function EventDetailsPage() {
                 </div>
               )}
             </div>
-            {/* Prizes */}
-            {event.prizes && event.prizes.length > 0 && (
-              <div className="pt-6">
-                <h3 className="text-lg font-semibold mb-3">Prizes</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {event.prizes.map((p, idx) => (
-                    <div key={idx} className="border rounded-lg p-4">
-                      <div className="text-base font-semibold">{p.title}</div>
-                      {typeof p.amount === 'number' && (
-                        <div className="text-sm text-slate-700">Amount: {p.amount}</div>
-                      )}
-                      {p.description && (
-                        <div className="text-sm text-slate-700 mt-1">{p.description}</div>
-                      )}
-                    </div>
-                  ))}
+              <div className="border-t pt-6" />
+            {/* Actions at the very end */}
+            <div className="pt-6 flex flex-col sm:flex-row gap-3">
+              {role !== 'organizer' ? (
+                <Button
+                  className="bg-cyan-600 hover:bg-cyan-700 transition-colors shadow-sm"
+                  onClick={() => {
+                    try {
+                      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                      const nextUrl = `/events/${event._id}/register`
+                      if (!token) {
+                        router.push(`/auth/login?next=${encodeURIComponent(nextUrl)}`)
+                        return
+                      }
+                      router.push(nextUrl)
+                    } catch {
+                      router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}/register`)}`)
+                    }
+                  }}
+                >
+                  Register
+                </Button>
+              ) : (
+                <div className="flex gap-3">
+                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+                    <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link prefetch href={`/events/${event._id}/edit`}>Edit</Link>
+                  </Button>
                 </div>
-              </div>
-            )}
-            {/* Sponsors / Partners */}
-            {event.sponsors && event.sponsors.length > 0 && (
-              <div className="pt-6">
-                <h3 className="text-lg font-semibold mb-3">Sponsors / Partners</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {event.sponsors.map((s, idx) => (
-                    <div key={idx} className="border rounded-lg p-4 flex gap-3 items-start">
-                      {s.bannerUrl && (
-                        <img src={s.bannerUrl} alt={s.title} className="w-16 h-16 object-contain rounded bg-white border" />
-                      )}
-                      <div className="space-y-1">
-                        <div className="text-base font-semibold">{s.title}</div>
-                        {s.description && <div className="text-sm text-slate-700">{s.description}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Calendar, Plus, MapPin, Users, Clock } from "lucide-react"
+import { Calendar, Plus, MapPin, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 type EventItem = {
@@ -26,6 +26,7 @@ export default function EventsPage() {
   const [role, setRole] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [view, setView] = useState<'all' | 'mine'>('all')
+  const [stageFilter, setStageFilter] = useState<'all' | 'upcoming' | 'ongoing' | 'completed'>('all')
   const [initialized, setInitialized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -114,6 +115,22 @@ export default function EventsPage() {
     return days
   }
 
+  // Compute status using provided status or fallback to dates
+  const computeStatus = (ev: EventItem): 'upcoming' | 'ongoing' | 'completed' => {
+    if (ev.status && ['upcoming','ongoing','completed'].includes(ev.status)) return ev.status as any
+    const now = new Date()
+    const s = parseAnyDate(ev.startDate) || new Date(ev.startDate)
+    const e = parseAnyDate(ev.endDate) || new Date(ev.endDate)
+    if (now < s) return 'upcoming'
+    if (now <= e) return 'ongoing'
+    return 'completed'
+  }
+
+  const filteredEvents = events.filter((ev) => {
+    if (stageFilter === 'all') return true
+    return computeStatus(ev) === stageFilter
+  });
+
   return (
     <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
@@ -137,34 +154,60 @@ export default function EventsPage() {
           )}
         </div>
 
+        {/* Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {(['all','upcoming','ongoing','completed'] as const).map((key) => (
+              <Button
+                key={key}
+                size="sm"
+                variant={stageFilter === key ? 'default' : 'outline'}
+                className={stageFilter === key ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
+                onClick={() => setStageFilter(key)}
+              >
+                {key[0].toUpperCase() + key.slice(1)}
+              </Button>
+            ))}
+          </div>
+          {role === 'organizer' && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant={view === 'all' ? 'default' : 'outline'} onClick={() => setView('all')}>All Events</Button>
+              <Button size="sm" variant={view === 'mine' ? 'default' : 'outline'} onClick={() => setView('mine')}>My Events</Button>
+            </div>
+          )}
+        </div>
+
         {loading ? (
           <div className="text-center text-slate-600">Loading events…</div>
         ) : error ? (
           <div className="text-center text-red-600">{error}</div>
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
-            {events.map((ev) => (
-              <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader>
-                  {ev.bannerUrl && (
-                    <div className="-mx-6 -mt-6 mb-3">
-                      <img
-                        src={ev.bannerUrl}
-                        alt={ev.title}
-                        className="w-full h-40 object-cover rounded-t-md"
-                        loading="lazy"
-                      />
+            {filteredEvents.length === 0 && (
+              <div className="col-span-full text-center text-slate-600">No events found for this filter.</div>
+            )}
+            {filteredEvents.length > 0 && filteredEvents.map((ev) => (
+                <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    {ev.bannerUrl && (
+                      <div className="-mx-6 -mt-6 mb-3">
+                        <img
+                          src={ev.bannerUrl}
+                          alt={ev.title}
+                          className="w-full h-40 object-cover rounded-t-md"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-xl">{ev.title}</CardTitle>
+                      {ev.registrationDeadline && (() => {
+                        const d = daysRemaining(ev.registrationDeadline)
+                        if (d === null) return null
+                        if (d < 0) return <span className="text-red-600 font-semibold">Closed</span>
+                        return <span className="text-xs font-semibold blink-red-black">{d} days left</span>
+                      })()}
                     </div>
-                  )}
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle className="text-xl">{ev.title}</CardTitle>
-                    {ev.registrationDeadline && (() => {
-                      const d = daysRemaining(ev.registrationDeadline)
-                      if (d === null) return null
-                      if (d < 0) return <span className="text-red-600 font-semibold">Closed</span>
-                      return <span className="text-xs font-semibold blink-red-black">{d} days left</span>
-                    })()}
-                  </div>
                   <CardDescription>
                     <div className="flex items-center gap-3 text-slate-600 flex-wrap">
                       <span className="flex items-center gap-1">
@@ -178,7 +221,7 @@ export default function EventsPage() {
                         </span>
                       )}
                       <span className="flex items-center gap-1">
-                        <Badge variant="outline">{ev.status}</Badge>
+                        <Badge variant="outline">{computeStatus(ev)}</Badge>
                       </span>
                     </div>
                   </CardDescription>
@@ -215,9 +258,6 @@ export default function EventsPage() {
                 </CardContent>
               </Card>
             ))}
-            {events.length === 0 && (
-              <div className="col-span-full text-center text-slate-600">No events found.</div>
-            )}
           </div>
         )}
       </main>
