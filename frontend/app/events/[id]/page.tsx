@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, User, Star } from "lucide-react"
+import { Calendar, MapPin, User, Star, ArrowLeft } from "lucide-react"
 
 type EventItem = {
   _id: string
@@ -129,8 +129,15 @@ export default function EventDetailsPage() {
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               {event.bannerUrl && (
-                <div className="-mx-6 -mt-6 mb-4">
+                <div className="-mx-6 -mt-6 mb-4 relative">
                   <img src={event.bannerUrl} alt={event.title} className="w-full h-56 object-cover rounded-t-md" />
+                  <div className="absolute top-3 left-3">
+                    <Link href="/events">
+                      <Button size="sm" variant="outline" className="gap-2 bg-white/80 backdrop-blur hover:bg-white">
+                        <ArrowLeft className="w-4 h-4" /> Back
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               )}
               <div className="flex items-center justify-between gap-4">
@@ -176,6 +183,11 @@ export default function EventDetailsPage() {
                 {role !== 'organizer' && (
                   <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                     <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
+                  </Button>
+                )}
+                {role === 'organizer' && (
+                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+                    <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
                   </Button>
                 )}
               </div>

@@ -55,6 +55,7 @@ type MyRegistration = {
 export default function MyApplyPage() {
   const [email, setEmail] = useState("")
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [regs, setRegs] = useState<MyRegistration[]>([])
@@ -98,6 +99,12 @@ export default function MyApplyPage() {
         if (!res.ok) return null
         const data = await res.json().catch(() => ({}))
         const em = data?.user?.email || data?.email
+        const r = data?.user?.role || null
+        if (r) setRole(r)
+        // Redirect organizers away from this page
+        if (r === 'organizer') {
+          try { window.location.replace('/events') } catch {}
+        }
         if (em) {
           setAuthedEmail(em)
           setEmail(em)
@@ -227,6 +234,22 @@ export default function MyApplyPage() {
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
     return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
+  }
+
+  // Fallback: if organizer and not yet redirected, show a simple notice
+  if (role === 'organizer') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 flex items-center justify-center p-6">
+        <div className="max-w-md text-center">
+          <Badge variant="secondary" className="mb-3">Access Restricted</Badge>
+          <h1 className="text-2xl font-bold mb-2">My Apply is unavailable for organizers</h1>
+          <p className="text-slate-600 mb-4">This section is intended for participants. You can manage your events from the Events page.</p>
+          <Link href="/events">
+            <Button className="bg-cyan-600 hover:bg-cyan-700">Go to Events</Button>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (

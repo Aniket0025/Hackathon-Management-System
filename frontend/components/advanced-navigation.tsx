@@ -55,6 +55,7 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
   const scrollRaf = useRef<number | null>(null)
   const lastScrolled = useRef<boolean>(false)
   const [isAuthed, setIsAuthed] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     const onScroll = () => {
@@ -88,6 +89,24 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
     }
   }, [])
 
+  // Load role to conditionally show/hide nav items
+  useEffect(() => {
+    const loadRole = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) { setRole(null); return }
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) { setRole(null); return }
+        const me = await res.json()
+        setRole(me?.user?.role ?? null)
+      } catch {
+        setRole(null)
+      }
+    }
+    loadRole()
+  }, [isAuthed])
+
   const handleLogout = () => {
     try {
       localStorage.removeItem("token")
@@ -105,6 +124,12 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
     setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
   }
   const clearAll = () => setNotifItems([])
+
+  // Hide "My Apply" for organizers
+  const visibleItems = navigationItems.filter((item) => {
+    if (role === 'organizer' && (item.href === '/my-apply' || item.href === '/teams')) return false
+    return true
+  })
 
   return (
     <header
@@ -129,7 +154,7 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
-            {navigationItems.map((item) => (
+            {visibleItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -237,7 +262,7 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
         {isMenuOpen && (
           <div className="lg:hidden border-t bg-white/95 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200">
             <nav className="py-4 space-y-1">
-              {navigationItems.map((item) => (
+              {visibleItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
