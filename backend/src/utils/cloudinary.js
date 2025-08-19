@@ -37,7 +37,47 @@ function uploadBuffer(buffer, folder, extraOptions = {}) {
   });
 }
 
+/**
+ * Deletes an asset by public_id.
+ * @param {string} publicId
+ * @returns {Promise<object>} Cloudinary destroy result
+ */
+function deleteByPublicId(publicId) {
+  return cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+}
+
+/**
+ * Tries to parse Cloudinary public_id from a secure URL.
+ * Only works for standard delivery URLs, may fail for transformed URLs.
+ */
+function tryExtractPublicIdFromUrl(url) {
+  try {
+    // Example: https://res.cloudinary.com/<cloud>/image/upload/v123/users/uid/avatar/abcd123.jpg
+    const u = new URL(url);
+    const parts = u.pathname.split('/');
+    // remove leading ''
+    while (parts.length && parts[0] === '') parts.shift();
+    // expected: ['<version or image>', 'upload', 'v123', 'users', ... , '<filename>']
+    const last = parts[parts.length - 1];
+    const withoutExt = last.includes('.') ? last.slice(0, last.lastIndexOf('.')) : last;
+    // public_id is path after 'upload/' without file extension
+    const uploadIdx = parts.findIndex((p) => p === 'upload');
+    if (uploadIdx === -1) return null;
+    const publicParts = parts.slice(uploadIdx + 1, parts.length - 1); // exclude filename, keep version + folders
+    // If first part is version like v123, drop it
+    const startIdx = publicParts[0] && /^v\d+$/i.test(publicParts[0]) ? 1 : 0;
+    const pathParts = publicParts.slice(startIdx);
+    pathParts.push(withoutExt);
+    return pathParts.join('/');
+  } catch (_) {
+    return null;
+  }
+}
+
 module.exports = {
   cloudinary,
   uploadBuffer,
+  deleteByPublicId,
+  tryExtractPublicIdFromUrl,
 };
+

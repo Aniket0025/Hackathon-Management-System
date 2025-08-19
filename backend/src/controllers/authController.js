@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const EmailVerification = require('../models/EmailVerification');
 const { sendMail } = require('../utils/mailer');
 const nodemailer = require('nodemailer');
+const { uploadBuffer, deleteByPublicId, tryExtractPublicIdFromUrl } = require('../utils/cloudinary');
 
 async function register(req, res, next) {
   try {
@@ -234,3 +235,56 @@ async function resetPassword(req, res, next) {
 
 module.exports.forgotPassword = forgotPassword;
 module.exports.resetPassword = resetPassword;
+
+// --- Avatar Upload ---
+async function uploadAvatar(req, res, next) {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    const folder = `users/${req.user.id}/avatar`;
+    const result = await uploadBuffer(req.file.buffer, folder, {
+      transformation: [{ width: 512, height: 512, crop: 'fill', gravity: 'face' }],
+      format: 'jpg',
+    });
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatarUrl: result.secure_url },
+      { new: true }
+    ).select('-password');
+
+    return res.json({ user, avatarUrl: result.secure_url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.uploadAvatar = uploadAvatar;
+
+// --- Avatar Remove ---
+async function removeAvatar(req, res, next) {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const prevUrl = user.avatarUrl;
+    user.avatarUrl = undefined;
+    await user.save();
+
+    // Best-effort delete in Cloudinary (ignore errors)
+    if (prevUrl) {
+      const publicId = tryExtractPublicIdFromUrl(prevUrl);
+      if (publicId) {
+        try { await deleteByPublicId(publicId); } catch (_) {}
+      }
+    }
+
+    return res.json({ user, message: 'Avatar removed' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.removeAvatar = removeAvatar;

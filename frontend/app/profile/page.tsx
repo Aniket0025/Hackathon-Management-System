@@ -22,8 +22,8 @@ type Me = {
   location?: string
   phone?: string
   bio?: string
-  social?: { github?: string; linkedin?: string; website?: string 
-  }
+  social?: { github?: string; linkedin?: string; website?: string }
+  avatarUrl?: string
 }
 
 export default function ProfilePage() {
@@ -41,6 +41,9 @@ export default function ProfilePage() {
     bio: "",
     social: { github: "", linkedin: "", website: "" },
   })
+  const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
   // Helpers for social links
   const normalizeUrl = (url: string) => {
@@ -107,6 +110,7 @@ export default function ProfilePage() {
           website: (me as any).social?.website || "",
         },
       })
+      setAvatarPreview(me.avatarUrl || null)
     }
   }, [me])
 
@@ -138,6 +142,65 @@ export default function ProfilePage() {
       setError(e?.message || "Failed to save profile")
     } finally {
       setSaving(false)
+    }
+  }
+
+  // --- Avatar: upload ---
+  const handleUploadAvatar = async () => {
+    if (!selectedAvatar) return
+    try {
+      setUploadingAvatar(true)
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        window.location.href = "/auth/login"
+        return
+      }
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const fd = new FormData()
+      fd.append('avatar', selectedAvatar)
+      const res = await fetch(`${base}/api/auth/me/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(txt || `Failed to upload avatar (${res.status})`)
+      }
+      const data = await res.json()
+      setMe(data?.user || data)
+      setAvatarPreview(data?.avatarUrl || data?.user?.avatarUrl || null)
+      setSelectedAvatar(null)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to upload avatar')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  // --- Avatar: remove ---
+  const handleRemoveAvatar = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        window.location.href = "/auth/login"
+        return
+      }
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const res = await fetch(`${base}/api/auth/me/avatar`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(txt || `Failed to remove avatar (${res.status})`)
+      }
+      const data = await res.json()
+      setMe(data?.user || data)
+      setAvatarPreview(null)
+      setSelectedAvatar(null)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to remove avatar')
     }
   }
 
@@ -173,7 +236,7 @@ export default function ProfilePage() {
               <CardContent className="space-y-4 text-sm">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-14 w-14 ring-2 ring-cyan-100">
-                    <AvatarImage src="/abstract-geometric-shapes.png" />
+                    <AvatarImage src={(me as any)?.avatarUrl || "/abstract-geometric-shapes.png"} />
                     <AvatarFallback>{me?.name?.[0] ?? "U"}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
@@ -307,38 +370,63 @@ export default function ProfilePage() {
             <DialogHeader>
               <DialogTitle>Edit Profile</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" value={form.name} onChange={(e) => setForm((f: any) => ({ ...f, name: e.target.value }))} />
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 ring-2 ring-cyan-100">
+                  <AvatarImage src={avatarPreview || (me as any)?.avatarUrl || "/abstract-geometric-shapes.png"} />
+                  <AvatarFallback>{me?.name?.[0] ?? 'U'}</AvatarFallback>
+                </Avatar>
+                <div className="space-y-2">
+                  <Label>Profile photo</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="file" accept="image/*" onChange={(e) => {
+                      const f = e.target.files?.[0] || null
+                      setSelectedAvatar(f)
+                      setAvatarPreview(f ? URL.createObjectURL(f) : (me as any)?.avatarUrl || null)
+                    }} />
+                    <Button onClick={handleUploadAvatar} disabled={!selectedAvatar || uploadingAvatar}>
+                      {uploadingAvatar ? 'Uploading…' : 'Upload'}
+                    </Button>
+                    <Button variant="outline" onClick={handleRemoveAvatar}>
+                      Remove photo
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="organization">Organization</Label>
-                <Input id="organization" value={form.organization} onChange={(e) => setForm((f: any) => ({ ...f, organization: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" value={form.location} onChange={(e) => setForm((f: any) => ({ ...f, location: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" value={form.phone} onChange={(e) => setForm((f: any) => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea id="bio" value={form.bio} onChange={(e) => setForm((f: any) => ({ ...f, bio: e.target.value }))} rows={4} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="github">GitHub</Label>
-                <Input id="github" placeholder="https://github.com/username" value={form.social.github} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, github: e.target.value } }))} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="linkedin">LinkedIn</Label>
-                <Input id="linkedin" placeholder="https://linkedin.com/in/username" value={form.social.linkedin} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, linkedin: e.target.value } }))} />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input id="website" placeholder="https://your-portfolio.com" value={form.social.website} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, website: e.target.value } }))} />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" value={form.name} onChange={(e) => setForm((f: any) => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="organization">Organization</Label>
+                  <Input id="organization" value={form.organization} onChange={(e) => setForm((f: any) => ({ ...f, organization: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input id="location" value={form.location} onChange={(e) => setForm((f: any) => ({ ...f, location: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" value={form.phone} onChange={(e) => setForm((f: any) => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea id="bio" value={form.bio} onChange={(e) => setForm((f: any) => ({ ...f, bio: e.target.value }))} rows={4} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="github">GitHub</Label>
+                  <Input id="github" placeholder="https://github.com/username" value={form.social.github} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, github: e.target.value } }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin">LinkedIn</Label>
+                  <Input id="linkedin" placeholder="https://linkedin.com/in/username" value={form.social.linkedin} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, linkedin: e.target.value } }))} />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input id="website" placeholder="https://your-portfolio.com" value={form.social.website} onChange={(e) => setForm((f: any) => ({ ...f, social: { ...f.social, website: e.target.value } }))} />
+                </div>
               </div>
             </div>
             <DialogFooter>
