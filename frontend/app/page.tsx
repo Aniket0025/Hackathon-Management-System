@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 
 const RealTimeActivityFeed = dynamic(
   () => import("@/components/real-time-activity-feed").then(m => ({ default: m.RealTimeActivityFeed })),
@@ -487,9 +488,14 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-white" />
-                </div>
+                <Image
+                  src="/hackhost-logo.png"
+                  alt="HackHost"
+                  width={32}
+                  height={32}
+                  className="rounded-lg"
+                  priority
+                />
                 <span className="text-xl font-bold text-white">HackHost</span>
               </div>
               <p className="text-slate-400 leading-relaxed">

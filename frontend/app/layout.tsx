@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist } from "next/font/google"
 import { Manrope } from "next/font/google"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
+import RouteTransition from "@/components/route-transition"
 import "./globals.css"
 
 const geist = Geist({
@@ -48,7 +49,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans">
         <AdvancedNavigation />
-        <div className="pt-16 md:pt-20">{children}</div>
+        <div className="pt-16 md:pt-20">
+          <RouteTransition>{children}</RouteTransition>
+        </div>
       </body>
     </html>
   )

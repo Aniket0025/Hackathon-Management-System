@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import Image from "next/image"
 
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -96,7 +97,7 @@ export default function RegisterPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/hackhost-logo.png" alt="HackHost" className="h-10 w-auto rounded" />
+            <Image src="/hackhost-logo.png" alt="HackHost" width={160} height={40} priority className="h-10 w-auto rounded" />
             <span className="text-2xl font-bold text-foreground font-sans">HackHost</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground font-sans">Create Account</h1>

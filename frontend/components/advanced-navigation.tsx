@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,12 +26,23 @@ import {
   ChevronDown,
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 interface NavigationProps {
   currentPath?: string
 }
 
-export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
+// Static nav items to avoid re-creation on every render
+const NAV_ITEMS = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/teams", label: "Teams", icon: Users },
+  { href: "/my-apply", label: "My Apply", icon: Users },
+  { href: "/community", label: "Community", icon: MessageSquare },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+] as const
+
+const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   // simple demo notifications; replace with API later
   const [notifItems, setNotifItems] = useState<{ id: string; title: string; time: string; read?: boolean }[]>([
@@ -41,15 +52,30 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
   ])
   const notifications = notifItems.filter((n) => !n.read).length
   const [isScrolled, setIsScrolled] = useState(false)
+  const scrollRaf = useRef<number | null>(null)
+  const lastScrolled = useRef<boolean>(false)
   const [isAuthed, setIsAuthed] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
+    const onScroll = () => {
+      if (scrollRaf.current) return
+      scrollRaf.current = requestAnimationFrame(() => {
+        scrollRaf.current = null
+        const next = window.scrollY > 10
+        if (next !== lastScrolled.current) {
+          lastScrolled.current = next
+          setIsScrolled(next)
+        }
+      })
     }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+    // Initialize once
+    lastScrolled.current = typeof window !== "undefined" ? window.scrollY > 10 : false
+    setIsScrolled(lastScrolled.current)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      if (scrollRaf.current) cancelAnimationFrame(scrollRaf.current)
+      window.removeEventListener("scroll", onScroll)
+    }
   }, [])
 
   // Check auth state from stored token
@@ -73,14 +99,7 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
     }
   }
 
-  const navigationItems = [
-    { href: "/", label: "Home", icon: Home },
-    { href: "/events", label: "Events", icon: Calendar },
-    { href: "/teams", label: "Teams", icon: Users },
-    { href: "/my-apply", label: "My Apply", icon: Users },
-    { href: "/community", label: "Community", icon: MessageSquare },
-    { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  ]
+  const navigationItems = useMemo(() => NAV_ITEMS, [])
 
   const markAllRead = () => {
     setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
@@ -97,9 +116,12 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
         <div className="flex items-center justify-between h-14 md:h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-3 group">
-            <img
+            <Image
               src="/hackhost-logo.png"
               alt="HackHost"
+              width={160}
+              height={40}
+              priority
               className="h-8 md:h-10 w-auto rounded-md shadow-lg group-hover:scale-105 transition-transform"
             />
             <span className="text-xl md:text-2xl font-bold text-slate-900">HackHost</span>
@@ -281,3 +303,5 @@ export function AdvancedNavigation({ currentPath = "/" }: NavigationProps) {
     </header>
   )
 }
+
+export const AdvancedNavigation = memo(AdvancedNavigationComponent)
