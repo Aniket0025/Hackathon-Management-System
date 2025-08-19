@@ -149,6 +149,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   const visibleItems = navigationItems.filter((item) => {
     if (!isAuthed && (item.href === '/teams' || item.href === '/my-apply' || item.href === '/analytics')) return false
     if (role === 'organizer' && (item.href === '/my-apply' || item.href === '/teams')) return false
+    if (role === 'judge' && (item.href === '/teams' || item.href === '/my-apply')) return false
     return true
   })
 
