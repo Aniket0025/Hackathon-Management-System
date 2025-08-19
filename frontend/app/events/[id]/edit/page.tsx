@@ -354,9 +354,28 @@ export default function EditEventPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bannerUrl">Banner Image URL</Label>
-                      <Input id="bannerUrl" type="url" placeholder="https://example.com/banner.jpg" value={form.bannerUrl} onChange={(e) => update("bannerUrl", e.target.value)} />
-                      <p className="text-xs text-slate-500">Provide a public image URL. Upload support can be added later.</p>
+                      <Label htmlFor="bannerUpload">Banner Image</Label>
+                      <Input
+                        id="bannerUpload"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (!f) return
+                          const reader = new FileReader()
+                          reader.onload = () => {
+                            const url = typeof reader.result === 'string' ? reader.result : ''
+                            update('bannerUrl', url)
+                          }
+                          reader.readAsDataURL(f)
+                        }}
+                      />
+                      {form.bannerUrl && (
+                        <div className="mt-2">
+                          <img src={form.bannerUrl} alt="Banner preview" className="w-full h-40 object-cover rounded border" />
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500">Upload an image. It will be embedded as a data URL.</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="registrationDeadline">Registration Deadline</Label>
@@ -550,8 +569,26 @@ export default function EditEventPage() {
                                 <Input value={sp.title} onChange={(e) => setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], title: e.target.value }; return { ...p, sponsors: arr } })} />
                               </div>
                               <div className="space-y-2">
-                                <Label>Banner / Logo Link</Label>
-                                <Input placeholder="https://.../logo.png" value={sp.bannerUrl} onChange={(e) => setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], bannerUrl: e.target.value }; return { ...p, sponsors: arr } })} />
+                                <Label>Banner / Logo Image</Label>
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0]
+                                    if (!f) return
+                                    const reader = new FileReader()
+                                    reader.onload = () => {
+                                      const url = typeof reader.result === 'string' ? reader.result : ''
+                                      setForm((p) => { const arr = [...p.sponsors]; arr[idx] = { ...arr[idx], bannerUrl: url }; return { ...p, sponsors: arr } })
+                                    }
+                                    reader.readAsDataURL(f)
+                                  }}
+                                />
+                                {sp.bannerUrl && (
+                                  <div className="mt-2">
+                                    <img src={sp.bannerUrl} alt={`${sp.title || 'Sponsor'} preview`} className="w-24 h-24 object-contain rounded border bg-white" />
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex justify-end">

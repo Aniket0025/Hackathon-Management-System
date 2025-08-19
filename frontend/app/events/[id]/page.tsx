@@ -4,11 +4,8 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, MapPin, User, Star, ArrowLeft, Trash2 } from "lucide-react"
+import { MapPin, User, Star, ArrowLeft } from "lucide-react"
 import { formatDate, formatDateRange } from "@/lib/date"
 
 type EventItem = {
@@ -47,9 +44,7 @@ export default function EventDetailsPage() {
   const [topTeams, setTopTeams] = useState<Array<{ _id: string; name: string; score?: number }>>([])
   const [teamsError, setTeamsError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [confirmText, setConfirmText] = useState("")
-  const [deleting, setDeleting] = useState(false)
+  
 
   useEffect(() => {
     if (!id) return
@@ -129,34 +124,7 @@ export default function EventDetailsPage() {
     return <span className={`${base} text-emerald-600`}>{`${d} days left`}</span>
   }
 
-  const handleDelete = async () => {
-    if (!event?._id) return
-    try {
-      setDeleting(true)
-      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-      if (!token) {
-        setDeleting(false)
-        router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}`)}`)
-        return
-      }
-      const res = await fetch(`${base}/api/events/${event._id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data?.message || `Failed to delete (status ${res.status})`)
-      }
-      setDeleteDialogOpen(false)
-      router.push('/events')
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setDeleting(false)
-      setConfirmText("")
-    }
-  }
+  
 
   return (
     <div className="min-h-screen bg-white">
@@ -381,12 +349,6 @@ export default function EventDetailsPage() {
                   <Button asChild variant="outline">
                     <Link prefetch href={`/events/${event._id}/edit`}>Edit</Link>
                   </Button>
-                  <Button
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={() => { setConfirmText(""); setDeleteDialogOpen(true) }}
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" /> Delete
-                  </Button>
                 </div>
               )}
             </div>
@@ -394,36 +356,6 @@ export default function EventDetailsPage() {
         </Card>
       )}
     </main>
-    {/* Delete Confirmation Dialog */}
-    <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete event?</DialogTitle>
-          <DialogDescription>
-            This action permanently deletes the event{event?.title ? ` "${event.title}"` : ''}. Type
-            <span className="px-1 mx-1 rounded bg-slate-100 border">confirm</span>
-            to enable deletion.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Input
-            placeholder="Type confirm to proceed"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700"
-            disabled={confirmText.trim().toLowerCase() !== 'confirm' || deleting}
-            onClick={handleDelete}
-          >
-            {deleting ? 'Deleting…' : 'Delete'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   </div>
 )
 }
