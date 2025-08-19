@@ -50,6 +50,8 @@ export default function CommunityPage() {
   const [q, setQ] = useState("")
   const [sort, setSort] = useState<"newest" | "likes">("newest")
   const [onlyWithBody, setOnlyWithBody] = useState(false)
+  // Section switcher (tabs)
+  const [activeSection, setActiveSection] = useState<'announcements' | 'qa' | 'posts'>('announcements')
 
   useEffect(() => {
     // Determine auth and role once on mount
@@ -435,7 +437,30 @@ export default function CommunityPage() {
           </Dialog>
         </div>
 
+        {/* Tabs */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {([
+            { key: 'announcements', label: 'Announcements' },
+            { key: 'qa', label: 'Q&A' },
+            { key: 'posts', label: 'Posts' },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSection(tab.key)}
+              className={
+                `px-4 py-2 rounded-full text-sm font-medium transition-colors ` +
+                (activeSection === tab.key
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200')
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Announcements section */}
+        {activeSection === 'announcements' && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold text-slate-900">📢 Announcements</h2>
@@ -499,12 +524,14 @@ export default function CommunityPage() {
             </div>
           )}
         </div>
+        )}
 
         {error && (
           <p className="text-center text-red-600 mb-4 text-sm">{error}</p>
         )}
 
         {/* Q&A section */}
+        {activeSection === 'qa' && (
         <div className="mb-12">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold text-slate-900">❓ Q&A</h2>
@@ -583,127 +610,133 @@ export default function CommunityPage() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Toolbar */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="md:col-span-2">
-            <Input placeholder="Search posts (title, body, author)" value={q} onChange={(e) => setQ(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-3 justify-between md:justify-end">
-            <label className="text-sm text-slate-700 flex items-center gap-2">
-              <input type="checkbox" className="h-4 w-4" checked={onlyWithBody} onChange={(e) => setOnlyWithBody(e.target.checked)} />
-              Only posts with body
-            </label>
-            <select
-              className="border border-slate-300 rounded-md text-sm px-2 py-2 bg-white"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as any)}
-              aria-label="Sort posts"
-            >
-              <option value="newest">Newest</option>
-              <option value="likes">Top liked</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-4 gap-6">
-          {/* Posts list */}
-          <div className="md:col-span-3">
-            <div className="flex justify-end mb-4">
-              <Button
-                className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
-                onClick={() => {
-                  try {
-                    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-                    if (!token) {
-                      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
-                      return
-                    }
-                    setOpen(true)
-                  } catch {
-                    window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
-                  }
-                }}
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />New Post
-              </Button>
+        {/* Posts section */}
+        {activeSection === 'posts' && (
+        <>
+          {/* Toolbar */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+              <Input placeholder="Search posts (title, body, author)" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            {loading ? (
-              <div className="grid md:grid-cols-3 gap-5">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={i} className="border border-slate-200 shadow-sm">
-                    <CardHeader>
-                      <div className="h-5 w-48 bg-slate-200 rounded mb-2" />
-                      <div className="h-4 w-24 bg-slate-200 rounded" />
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-between">
-                      <div className="h-6 w-24 bg-slate-200 rounded" />
-                      <div className="h-9 w-16 bg-slate-200 rounded" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center text-slate-600 py-10">No posts match your filters.</div>
-            ) : (
-              <div className="grid md:grid-cols-3 gap-5">
-                {filtered.map((p) => (
-                  <Card
-                    key={p.id}
-                    className="border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm"
-                  >
-                    <CardHeader>
-                      <CardTitle>{p.title}</CardTitle>
-                      <CardDescription>by {p.author}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {p.body && (
-                        <p className="text-sm text-slate-700 mb-4">{preview(p.body)}</p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <Badge
-                          variant="secondary"
-                          className="bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs hover:bg-emerald-100/70 transition-colors inline-flex items-center"
-                        >
-                          <ThumbsUp className="w-3 h-3 mr-1" /> {p.likes} likes
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => likePost(p.id)}
-                          className="shadow-xs hover:shadow-sm"
-                          disabled={likedPosts.has(p.id)}
-                        >
-                          <ThumbsUp className="w-4 h-4 mr-2" /> {likedPosts.has(p.id) ? "Liked" : "Like"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-3 justify-between md:justify-end">
+              <label className="text-sm text-slate-700 flex items-center gap-2">
+                <input type="checkbox" className="h-4 w-4" checked={onlyWithBody} onChange={(e) => setOnlyWithBody(e.target.checked)} />
+                Only posts with body
+              </label>
+              <select
+                className="border border-slate-300 rounded-md text-sm px-2 py-2 bg-white"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as any)}
+                aria-label="Sort posts"
+              >
+                <option value="newest">Newest</option>
+                <option value="likes">Top liked</option>
+              </select>
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="md:col-span-1 space-y-6">
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Community stats</CardTitle>
-                <CardDescription>Activity overview</CardDescription>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-700 grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xl font-semibold">{totals.totalPosts}</div>
-                  <div className="text-slate-500">Posts</div>
+          <div className="grid md:grid-cols-4 gap-6">
+            {/* Posts list */}
+            <div className="md:col-span-3">
+              <div className="flex justify-end mb-4">
+                <Button
+                  className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                  onClick={() => {
+                    try {
+                      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                      if (!token) {
+                        window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                        return
+                      }
+                      setOpen(true)
+                    } catch {
+                      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                    }
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />New Post
+                </Button>
+              </div>
+              {loading ? (
+                <div className="grid md:grid-cols-3 gap-5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i} className="border border-slate-200 shadow-sm">
+                      <CardHeader>
+                        <div className="h-5 w-48 bg-slate-200 rounded mb-2" />
+                        <div className="h-4 w-24 bg-slate-200 rounded" />
+                      </CardHeader>
+                      <CardContent className="flex items-center justify-between">
+                        <div className="h-6 w-24 bg-slate-200 rounded" />
+                        <div className="h-9 w-16 bg-slate-200 rounded" />
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-                <div>
-                  <div className="text-xl font-semibold">{totals.totalLikes}</div>
-                  <div className="text-slate-500">Likes</div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center text-slate-600 py-10">No posts match your filters.</div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-5">
+                  {filtered.map((p) => (
+                    <Card
+                      key={p.id}
+                      className="border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm"
+                    >
+                      <CardHeader>
+                        <CardTitle>{p.title}</CardTitle>
+                        <CardDescription>by {p.author}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {p.body && (
+                          <p className="text-sm text-slate-700 mb-4">{preview(p.body)}</p>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <Badge
+                            variant="secondary"
+                            className="bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs hover:bg-emerald-100/70 transition-colors inline-flex items-center"
+                          >
+                            <ThumbsUp className="w-3 h-3 mr-1" /> {p.likes} likes
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => likePost(p.id)}
+                            className="shadow-xs hover:shadow-sm"
+                            disabled={likedPosts.has(p.id)}
+                          >
+                            <ThumbsUp className="w-4 h-4 mr-2" /> {likedPosts.has(p.id) ? "Liked" : "Like"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="md:col-span-1 space-y-6">
+              <Card className="border border-slate-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Community stats</CardTitle>
+                  <CardDescription>Activity overview</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-slate-700 grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xl font-semibold">{totals.totalPosts}</div>
+                    <div className="text-slate-500">Posts</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-semibold">{totals.totalLikes}</div>
+                    <div className="text-slate-500">Likes</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        </>
+        )}
       </main>
     </div>
   )
