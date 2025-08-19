@@ -13,6 +13,9 @@ const eventSchema = new mongoose.Schema(
     website: { type: String },
     registrationDeadline: { type: Date },
     participantType: { type: String, enum: ['individual', 'group'], default: 'individual' },
+    // Team size constraints (only relevant when participantType is 'group')
+    minTeamSize: { type: Number, min: 1, default: 1 },
+    maxTeamSize: { type: Number, min: 1, default: 6 },
     contactName: { type: String },
     contactEmail: { type: String },
     contactPhone: { type: String },
@@ -21,5 +24,13 @@ const eventSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Ensure maxTeamSize >= minTeamSize when both are provided
+eventSchema.pre('validate', function (next) {
+  if (this.minTeamSize && this.maxTeamSize && this.maxTeamSize < this.minTeamSize) {
+    this.invalidate('maxTeamSize', 'maxTeamSize must be greater than or equal to minTeamSize');
+  }
+  next();
+});
 
 module.exports = mongoose.model('Event', eventSchema);

@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+// Removed RadioGroup imports as Registration Type card is removed
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, MapPin, ArrowLeft, User, Mail, Phone } from "lucide-react"
+import { Calendar, Users, MapPin, ArrowLeft, Pencil, Trash2, Crown } from "lucide-react"
 import Link from "next/link"
 import type { CheckedState } from "@radix-ui/react-checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 type EventItem = {
   _id: string
@@ -55,6 +56,7 @@ interface RegistrationData {
     teamDescription: string
     lookingForMembers: boolean
     desiredSkills: string[]
+    teamSize?: number
     members: Array<{
       firstName: string
       lastName: string
@@ -84,14 +86,31 @@ interface RegistrationData {
   }
 }
 
-export default function EventRegistrationPage({ params }: { params?: { id: string } }) {
-  const routeParams = useParams<{ id: string }>()
-  const id = params?.id || routeParams?.id
+// Helper: create a correctly typed empty team member
+const makeEmptyMember = (): RegistrationData["teamInfo"]["members"][number] => ({
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  gender: "",
+  instituteName: "",
+  type: "",
+  domain: "",
+  bio: "",
+  graduatingYear: "",
+  courseDuration: "",
+  differentlyAbled: "",
+  location: "",
+})
+
+export default function EventRegistrationPage() {
+  const routeParams = useParams() as { id?: string | string[] }
+  const id = Array.isArray(routeParams?.id) ? routeParams.id[0] : routeParams?.id
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [registrationData, setRegistrationData] = useState<RegistrationData>({
-    registrationType: "individual",
+    registrationType: "team",
     personalInfo: {
       firstName: "",
       lastName: "",
@@ -114,6 +133,7 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
       teamDescription: "",
       lookingForMembers: false,
       desiredSkills: [],
+      teamSize: undefined,
       members: [],
     },
     preferences: {
@@ -132,6 +152,7 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
   const [isLoading, setIsLoading] = useState(false)
   const [newSkill, setNewSkill] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -146,6 +167,19 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
         if (!data?.event?.organizer) {
           setError("Registration is only available for organizer-created events.")
         }
+        // Initialize default team size based on event config if present
+        const minTS = (data?.event?.minTeamSize ?? data?.event?.minTeamMembers ?? 1) as number
+        const normalizedMin = Math.max(1, Number(minTS) || 1)
+        const defaultTeamSize = normalizedMin
+        setRegistrationData((prev) => {
+          const members = prev.teamInfo.members && prev.teamInfo.members.length > 0
+            ? prev.teamInfo.members.slice(0, defaultTeamSize)
+            : Array.from({ length: defaultTeamSize }, () => makeEmptyMember())
+          return {
+            ...prev,
+            teamInfo: { ...prev.teamInfo, teamSize: defaultTeamSize, members },
+          }
+        })
       } catch (e: any) {
         setError(e?.message || "Failed to load event")
       } finally {
@@ -169,31 +203,49 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
     }))
   }
 
+  // Keep team members array length in sync with selected team size
+  const updateTeamSize = (size: number) => {
+    setRegistrationData((prev) => {
+      const eventMin = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+      const eventMax = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? Math.max(1, Number(eventMin) || 1)
+      const nextSizeRaw = Math.max(1, Math.floor(Number(size) || 1))
+      const nextSize = Math.min(Math.max(nextSizeRaw, Number(eventMin) || 1), Number(eventMax) || nextSizeRaw)
+      let members = prev.teamInfo.members
+      if (members.length < nextSize) {
+        members = [...members, ...Array.from({ length: nextSize - members.length }, () => makeEmptyMember())]
+      } else if (members.length > nextSize) {
+        members = members.slice(0, nextSize)
+      }
+      return { ...prev, teamInfo: { ...prev.teamInfo, teamSize: nextSize, members } }
+    })
+  }
+
+  // Helpers to compute current bounds and state
+  const getEventBounds = () => {
+    const min = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+    const max = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? Math.max(1, Number(min) || 1)
+    return { min: Number(min) || 1, max: Number(max) || (Number(min) || 1) }
+  }
+  const getMaxAllowed = () => {
+    const { max } = getEventBounds()
+    return registrationData.teamInfo.teamSize || max
+  }
+  const atMaxMembers = () => registrationData.teamInfo.members.length >= (Number(getMaxAllowed()) || 1)
+
   const addMember = () => {
-    setRegistrationData((prev) => ({
-      ...prev,
-      teamInfo: {
-        ...prev.teamInfo,
-        members: [
-          ...prev.teamInfo.members,
-          {
-            firstName: "",
-            lastName: "",
-            email: "",
-            phone: "",
-            gender: "",
-            instituteName: "",
-            type: "",
-            domain: "",
-            bio: "",
-            graduatingYear: "",
-            courseDuration: "",
-            differentlyAbled: "",
-            location: "",
-          },
-        ],
-      },
-    }))
+    setRegistrationData((prev) => {
+      const eventMin = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+      const eventMax = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? Math.max(1, Number(eventMin) || 1)
+      const maxAllowed = prev.teamInfo.teamSize ?? eventMax
+      if (prev.teamInfo.members.length >= (Number(maxAllowed) || 1)) return prev
+      return {
+        ...prev,
+        teamInfo: {
+          ...prev.teamInfo,
+          members: [...prev.teamInfo.members, makeEmptyMember()],
+        },
+      }
+    })
   }
 
   const updateMember = (index: number, field: string, value: any) => {
@@ -256,27 +308,17 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
   // Quick action: if no members, add Member 1 as the registrant
   const addMeAsMember1 = () => {
     setRegistrationData((prev) => {
+      const eventMin = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+      const eventMax = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? Math.max(1, Number(eventMin) || 1)
+      const maxAllowed = prev.teamInfo.teamSize ?? eventMax
       let nextMembers = prev.teamInfo.members
       if (nextMembers.length === 0) {
-        nextMembers = [
-          {
-            firstName: "",
-            lastName: "",
-            email: "",
-            phone: "",
-            gender: "",
-            instituteName: "",
-            type: "",
-            domain: "",
-            bio: "",
-            graduatingYear: "",
-            courseDuration: "",
-            differentlyAbled: "",
-            location: "",
-          },
-        ]
+        nextMembers = [makeEmptyMember()]
       } else {
         nextMembers = [...nextMembers]
+      }
+      if (nextMembers.length > (Number(maxAllowed) || 1)) {
+        nextMembers = nextMembers.slice(0, Number(maxAllowed) || 1)
       }
       const p = prev.personalInfo
       nextMembers[0] = {
@@ -333,10 +375,34 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
     setIsLoading(true)
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      // Ensure backend-required personalInfo exists: derive from Member 1 if needed
+      const derivedPI = (() => {
+        const pi = registrationData.personalInfo || ({} as any)
+        const m0 = registrationData.teamInfo?.members?.[0] || ({} as any)
+        return {
+          firstName: (pi.firstName || m0.firstName || "").trim(),
+          lastName: (pi.lastName || m0.lastName || "").trim(),
+          email: (pi.email || m0.email || "").trim(),
+          phone: (pi.phone || m0.phone || "").trim(),
+          organization: pi.organization || "",
+          experience: pi.experience || "",
+          bio: pi.bio || "",
+          gender: pi.gender || (m0.gender || ""),
+          instituteName: pi.instituteName || (m0.instituteName || ""),
+          type: pi.type || (m0.type || ""),
+          domain: pi.domain || (m0.domain || ""),
+          graduatingYear: pi.graduatingYear || (m0.graduatingYear || ""),
+          courseDuration: pi.courseDuration || (m0.courseDuration || ""),
+          differentlyAbled: pi.differentlyAbled || (m0.differentlyAbled || ""),
+          location: pi.location || (m0.location || ""),
+        }
+      })()
+      const payload = { ...registrationData, personalInfo: derivedPI }
+
       const res = await fetch(`${base}/api/events/${id}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registrationData),
+        body: JSON.stringify(payload),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || "Registration failed")
@@ -350,15 +416,42 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
   }
 
   const isFormValid = () => {
-    const { personalInfo, agreements } = registrationData
-    return (
-      personalInfo.firstName &&
-      personalInfo.lastName &&
-      personalInfo.email &&
+    const { teamInfo, agreements } = registrationData
+    const requiredTeamSize = Math.max(1, Number(teamInfo.teamSize || 1))
+    const members = teamInfo.members || []
+    const hasEnoughMembers = members.length >= requiredTeamSize
+    const isValidEmail = (v: string) => /\S+@\S+\.\S+/.test((v || "").trim())
+    const membersValid = hasEnoughMembers && members.slice(0, requiredTeamSize).every((m) => (
+      (m.firstName?.trim() || "") &&
+      // last name is optional
+      (m.email?.trim() || "") &&
+      isValidEmail(m.email)
+    ))
+
+    const teamMetaValid = (teamInfo.teamName?.trim() || "")
+
+    // Backend requires personalInfo.firstName, lastName, email
+    const firstMember = members[0] || ({} as any)
+    const pi = registrationData.personalInfo || ({} as any)
+    const personalInfoValid = Boolean(
+      (pi.firstName || firstMember.firstName || "").trim() &&
+      (pi.lastName || firstMember.lastName || "").trim() &&
+      isValidEmail((pi.email || firstMember.email || "").trim())
+    )
+
+    const agreementsValid =
       agreements.termsAccepted &&
       agreements.codeOfConductAccepted &&
       agreements.dataProcessingAccepted
-    )
+
+    return Boolean(teamMetaValid && membersValid && personalInfoValid && agreementsValid)
+  }
+
+  const formInvalidReason = () => {
+    if (loading) return "Loading event..."
+    if (isLoading) return "Submitting..."
+    if (!isFormValid()) return "Please complete team name, required member fields, and agreements."
+    return null
   }
 
   const fmtDate = (iso: string) => {
@@ -430,254 +523,7 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Registration Type */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">Registration Type</CardTitle>
-              <CardDescription className="font-serif">Choose how you want to participate</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RadioGroup
-                value={registrationData.registrationType}
-                onValueChange={(value) =>
-                  setRegistrationData((prev) => ({ ...prev, registrationType: value as "individual" | "team" }))
-                }
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              >
-                <div className="flex items-center space-x-2 p-4 border rounded-lg">
-                  <RadioGroupItem value="individual" id="individual" />
-                  <div className="flex-1">
-                    <Label htmlFor="individual" className="font-medium font-sans">
-                      Individual Participant
-                    </Label>
-                    <p className="text-sm text-muted-foreground font-serif">
-                      Register as an individual and join or form teams later
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2 p-4 border rounded-lg">
-                  <RadioGroupItem value="team" id="team" />
-                  <div className="flex-1">
-                    <Label htmlFor="team" className="font-medium font-sans">
-                      Team Registration
-                    </Label>
-                    <p className="text-sm text-muted-foreground font-serif">
-                      Register with a team name and invite members
-                    </p>
-                  </div>
-                </div>
-              </RadioGroup>
-            </CardContent>
-          </Card>
-
-          {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-sans">
-                <User className="w-5 h-5" />
-                Personal Information
-              </CardTitle>
-              <CardDescription className="font-serif">Tell us about yourself</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="font-serif">
-                    First Name *
-                  </Label>
-                  <Input
-                    id="firstName"
-                    value={registrationData.personalInfo.firstName}
-                    onChange={(e) => updatePersonalInfo("firstName", e.target.value)}
-                    className="font-serif"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="font-serif">
-                    Last Name *
-                  </Label>
-                  <Input
-                    id="lastName"
-                    value={registrationData.personalInfo.lastName}
-                    onChange={(e) => updatePersonalInfo("lastName", e.target.value)}
-                    className="font-serif"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="font-serif">Gender</Label>
-                  <Select value={registrationData.personalInfo.gender} onValueChange={(v) => updatePersonalInfo("gender", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                      <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="institute" className="font-serif">Institute Name</Label>
-                  <Input id="institute" value={registrationData.personalInfo.instituteName} onChange={(e) => updatePersonalInfo("instituteName", e.target.value)} className="font-serif" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="font-serif">Type</Label>
-                  <Select value={registrationData.personalInfo.type} onValueChange={(v) => updatePersonalInfo("type", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="college_student">College Student</SelectItem>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="school_student">School Student</SelectItem>
-                      <SelectItem value="fresher">Fresher</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-serif">Domain</Label>
-                  <Select value={registrationData.personalInfo.domain} onValueChange={(v) => updatePersonalInfo("domain", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select domain" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="management">Management</SelectItem>
-                      <SelectItem value="engineering">Engineering</SelectItem>
-                      <SelectItem value="arts_science">Arts and Science</SelectItem>
-                      <SelectItem value="medicine">Medicine</SelectItem>
-                      <SelectItem value="law">Law</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="font-serif">Graduating Year</Label>
-                  <Select value={registrationData.personalInfo.graduatingYear} onValueChange={(v) => updatePersonalInfo("graduatingYear", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
-                    <SelectContent>
-                      {(["2026","2027","2028","2029"] as const).map((y) => (
-                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-serif">Course Duration (years)</Label>
-                  <Select value={registrationData.personalInfo.courseDuration} onValueChange={(v) => updatePersonalInfo("courseDuration", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                    <SelectContent>
-                      {(["2","3","4","5"] as const).map((d) => (
-                        <SelectItem key={d} value={d}>{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="font-serif">Differently Abled</Label>
-                  <Select value={registrationData.personalInfo.differentlyAbled} onValueChange={(v) => updatePersonalInfo("differentlyAbled", v)}>
-                    <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location" className="font-serif">Location</Label>
-                  <Input id="location" value={registrationData.personalInfo.location} onChange={(e) => updatePersonalInfo("location", e.target.value)} className="font-serif" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="font-serif">
-                    Email Address *
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={registrationData.personalInfo.email}
-                      onChange={(e) => updatePersonalInfo("email", e.target.value)}
-                      className="pl-10 font-serif"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="font-serif">
-                    Phone Number
-                  </Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={registrationData.personalInfo.phone}
-                      onChange={(e) => updatePersonalInfo("phone", e.target.value)}
-                      className="pl-10 font-serif"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="organization" className="font-serif">
-                    Organization/University
-                  </Label>
-                  <Input
-                    id="organization"
-                    value={registrationData.personalInfo.organization}
-                    onChange={(e) => updatePersonalInfo("organization", e.target.value)}
-                    className="font-serif"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="experience" className="font-serif">
-                    Experience Level
-                  </Label>
-                  <Select onValueChange={(value) => updatePersonalInfo("experience", value)}>
-                    <SelectTrigger className="font-serif">
-                      <SelectValue placeholder="Select your experience level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner (0-1 years)</SelectItem>
-                      <SelectItem value="intermediate">Intermediate (2-4 years)</SelectItem>
-                      <SelectItem value="advanced">Advanced (5+ years)</SelectItem>
-                      <SelectItem value="expert">Expert (10+ years)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bio" className="font-serif">
-                  Bio/Skills
-                </Label>
-                <Textarea
-                  id="bio"
-                  placeholder="Tell us about your background, skills, and what you hope to achieve at this event..."
-                  value={registrationData.personalInfo.bio}
-                  onChange={(e) => updatePersonalInfo("bio", e.target.value)}
-                  className="min-h-[100px] font-serif"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Information */}
+          {/* Team Information - moved to top */}
           {registrationData.registrationType === "team" && (
             <Card>
               <CardHeader>
@@ -688,6 +534,33 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                 <CardDescription className="font-serif">Set up your team details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Team Size (from event config if available) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-serif">Team Size</Label>
+                    <Select
+                      value={(registrationData.teamInfo.teamSize ?? "").toString()}
+                      onValueChange={(v) => updateTeamSize(parseInt(v))}
+                    >
+                      <SelectTrigger className="font-serif">
+                        <SelectValue placeholder="Select team size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(() => {
+                          const minTS = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+                          const maxTS = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? 6
+                          const min = Math.max(1, Number(minTS) || 1)
+                          const max = Math.max(min, Number(maxTS) || min)
+                          const arr = Array.from({ length: max - min + 1 }, (_, i) => i + min)
+                          return arr.map((n) => (
+                            <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                          ))
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="teamName" className="font-serif">
                     Team Name *
@@ -753,7 +626,7 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                     </div>
                   </div>
                 )}
-
+                {/* Team members list and editor */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="font-serif">Team Members</Label>
@@ -761,148 +634,199 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
                       {registrationData.teamInfo.members.length === 0 && (
                         <Button type="button" onClick={addMeAsMember1} variant="outline">Add Me as Member 1</Button>
                       )}
-                      <Button type="button" onClick={addMember} variant="secondary">Add Member</Button>
+                      <Button
+                        type="button"
+                        onClick={addMember}
+                        variant="secondary"
+                        disabled={atMaxMembers()}
+                        aria-disabled={atMaxMembers()}
+                        title={atMaxMembers() ? "Maximum team size reached" : "Add a new team member"}
+                      >
+                        Add Member
+                      </Button>
                     </div>
                   </div>
-                  {registrationData.teamInfo.members.length === 0 && (
-                    <div className="text-sm text-muted-foreground">Add members and fill their details.</div>
+                  {atMaxMembers() && (
+                    <p className="text-xs text-muted-foreground">Maximum team size reached for this event.</p>
                   )}
-                  {registrationData.teamInfo.members.map((m, idx) => (
-                    <Card key={idx} className="border-dashed">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base font-sans">Member {idx + 1}</CardTitle>
-                          {idx === 0 && (
-                            <Button type="button" size="sm" variant="outline" onClick={() => copyPersonalToMember(0)}>
-                              Copy from Personal Information
+                  {registrationData.teamInfo.members.length === 0 && (
+                    <div className="text-sm text-muted-foreground">Add members and then click a member to edit their details.</div>
+                  )}
+                  <div className="space-y-2">
+                    {registrationData.teamInfo.members.map((m, idx) => {
+                      const name = `${m.firstName || ""} ${m.lastName || ""}`.trim() || `Member ${idx + 1}`
+                      const phone = m.phone || "—"
+                      const initial = (m.firstName || m.lastName || `${idx + 1}`).trim().charAt(0).toUpperCase()
+                      return (
+                        <div key={idx} className={`flex items-center justify-between rounded-md border px-3 py-2 ${idx===0?"bg-emerald-50":"bg-background"}`}>
+                          <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => setEditingMemberIndex(idx)}>
+                            <div className={`h-9 w-9 rounded-full flex items-center justify-center border ${idx===0?"border-emerald-400":"border-muted"} bg-background font-medium`}>{initial}</div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-sans font-medium">{name}</span>
+                                {idx===0 && (
+                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800"><Crown className="w-3 h-3"/> Team Leader</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-serif">{phone}</div>
+                            </div>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <Button type="button" size="icon" variant="outline" onClick={() => setEditingMemberIndex(idx)} aria-label="Edit">
+                              <Pencil className="w-4 h-4" />
                             </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">First Name</Label>
-                            <Input value={m.firstName} onChange={(e) => updateMember(idx, "firstName", e.target.value)} className="font-serif" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Last Name</Label>
-                            <Input value={m.lastName} onChange={(e) => updateMember(idx, "lastName", e.target.value)} className="font-serif" />
+                            <Button type="button" size="icon" variant="outline" onClick={() => removeMember(idx)} aria-label="Remove">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">Email</Label>
-                            <Input type="email" value={m.email} onChange={(e) => updateMember(idx, "email", e.target.value)} className="font-serif" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Mobile</Label>
-                            <Input type="tel" value={m.phone} onChange={(e) => updateMember(idx, "phone", e.target.value)} className="font-serif" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">Gender</Label>
-                            <Select value={m.gender} onValueChange={(v) => updateMember(idx, "gender", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                                <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Institute Name</Label>
-                            <Input value={m.instituteName} onChange={(e) => updateMember(idx, "instituteName", e.target.value)} className="font-serif" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">Type</Label>
-                            <Select value={m.type} onValueChange={(v) => updateMember(idx, "type", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="college_student">College Student</SelectItem>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="school_student">School Student</SelectItem>
-                                <SelectItem value="fresher">Fresher</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Domain</Label>
-                            <Select value={m.domain} onValueChange={(v) => updateMember(idx, "domain", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select domain" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="management">Management</SelectItem>
-                                <SelectItem value="engineering">Engineering</SelectItem>
-                                <SelectItem value="arts_science">Arts and Science</SelectItem>
-                                <SelectItem value="medicine">Medicine</SelectItem>
-                                <SelectItem value="law">Law</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="font-serif">Bio/Skills</Label>
-                          <Textarea value={m.bio} onChange={(e) => updateMember(idx, "bio", e.target.value)} className="font-serif min-h-[80px]" />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">Graduating Year</Label>
-                            <Select value={m.graduatingYear} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
-                              <SelectContent>
-                                {(["2026","2027","2028","2029"] as const).map((y) => (
-                                  <SelectItem key={y} value={y}>{y}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Course Duration (years)</Label>
-                            <Select value={m.courseDuration} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                              <SelectContent>
-                                {(["2","3","4","5"] as const).map((d) => (
-                                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="font-serif">Differently Abled</Label>
-                            <Select value={m.differentlyAbled} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
-                              <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="no">No</SelectItem>
-                                <SelectItem value="yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-serif">Location</Label>
-                            <Input value={m.location} onChange={(e) => updateMember(idx, "location", e.target.value)} className="font-serif" />
-                          </div>
-                        </div>
-                        <div className="flex justify-end">
-                          <Button type="button" variant="outline" onClick={() => removeMember(idx)}>Remove</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      )
+                    })}
+                  </div>
                 </div>
+
+                {/* Member edit dialog */}
+                <Dialog open={editingMemberIndex !== null} onOpenChange={(open) => !open && setEditingMemberIndex(null)}>
+                  <DialogContent className="max-w-2xl">
+                    {editingMemberIndex !== null && (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle className="font-sans">Edit Member {editingMemberIndex + 1}</DialogTitle>
+                          <DialogDescription className="font-serif">Update the member details and close the dialog.</DialogDescription>
+                        </DialogHeader>
+                        {(() => { const idx = editingMemberIndex; const m = registrationData.teamInfo.members[idx]; return (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">First Name</Label>
+                                <Input value={m.firstName} onChange={(e) => updateMember(idx, "firstName", e.target.value)} className="font-serif" />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Last Name</Label>
+                                <Input value={m.lastName} onChange={(e) => updateMember(idx, "lastName", e.target.value)} className="font-serif" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">Email</Label>
+                                <Input type="email" value={m.email} onChange={(e) => updateMember(idx, "email", e.target.value)} className="font-serif" />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Mobile</Label>
+                                <Input type="tel" value={m.phone} onChange={(e) => updateMember(idx, "phone", e.target.value)} className="font-serif" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">Gender</Label>
+                                <Select value={m.gender} onValueChange={(v) => updateMember(idx, "gender", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="male">Male</SelectItem>
+                                    <SelectItem value="female">Female</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                    <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Institute Name</Label>
+                                <Input value={m.instituteName} onChange={(e) => updateMember(idx, "instituteName", e.target.value)} className="font-serif" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">Type</Label>
+                                <Select value={m.type} onValueChange={(v) => updateMember(idx, "type", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="college_student">College Student</SelectItem>
+                                    <SelectItem value="professional">Professional</SelectItem>
+                                    <SelectItem value="school_student">School Student</SelectItem>
+                                    <SelectItem value="fresher">Fresher</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Domain</Label>
+                                <Select value={m.domain} onValueChange={(v) => updateMember(idx, "domain", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select domain" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="management">Management</SelectItem>
+                                    <SelectItem value="engineering">Engineering</SelectItem>
+                                    <SelectItem value="arts_science">Arts and Science</SelectItem>
+                                    <SelectItem value="medicine">Medicine</SelectItem>
+                                    <SelectItem value="law">Law</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-serif">Bio/Skills</Label>
+                              <Textarea value={m.bio} onChange={(e) => updateMember(idx, "bio", e.target.value)} className="font-serif min-h-[80px]" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">Graduating Year</Label>
+                                <Select value={m.graduatingYear} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
+                                  <SelectContent>
+                                    {["2026","2027","2028","2029"].map((y) => (
+                                      <SelectItem key={y} value={y}>{y}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Course Duration (years)</Label>
+                                <Select value={m.courseDuration} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                                  <SelectContent>
+                                    {["2","3","4","5"].map((d) => (
+                                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="font-serif">Differently Abled</Label>
+                                <Select value={m.differentlyAbled} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
+                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="no">No</SelectItem>
+                                    <SelectItem value="yes">Yes</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="font-serif">Location</Label>
+                                <Input value={m.location} onChange={(e) => updateMember(idx, "location", e.target.value)} className="font-serif" />
+                              </div>
+                            </div>
+                            {/* Removed 'Copy from Personal Information' action in modal as requested */}
+                          </div>
+                        )})()}
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </CardContent>
             </Card>
           )}
+          {/* Registration Type card removed to enforce Team Registration */}
+
+          {/* Personal Information card removed per request */}
+
 
           
+
+
+          
+
 
           {/* Agreements */}
           <Card>
@@ -979,7 +903,11 @@ export default function EventRegistrationPage({ params }: { params?: { id: strin
             <Button type="button" variant="outline" asChild>
               <Link href={`/events/${id}`}>Cancel</Link>
             </Button>
-            <Button type="submit" disabled={isLoading || !isFormValid() || loading || !!error || !event?.organizer}>
+            <Button
+              type="submit"
+              disabled={isLoading || loading || !isFormValid()}
+              title={formInvalidReason() || undefined}
+            >
               {isLoading ? "Registering..." : "Complete Registration"}
             </Button>
           </div>

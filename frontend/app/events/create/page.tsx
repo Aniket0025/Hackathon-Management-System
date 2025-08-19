@@ -28,6 +28,8 @@ export default function CreateEventPage() {
     website: "",
     registrationDeadline: "",
     participantType: "individual" as "individual" | "group",
+    minTeamSize: "",
+    maxTeamSize: "",
     contactName: "",
     contactEmail: "",
     contactPhone: "",
@@ -94,6 +96,20 @@ export default function CreateEventPage() {
       }
     }
 
+    // Validate team size if group events
+    if (form.participantType === "group") {
+      const min = form.minTeamSize === "" ? 1 : Number(form.minTeamSize)
+      const max = form.maxTeamSize === "" ? min : Number(form.maxTeamSize)
+      if (!Number.isInteger(min) || min < 1) {
+        setError("Minimum team size must be an integer of at least 1.")
+        return
+      }
+      if (!Number.isInteger(max) || max < min) {
+        setError("Maximum team size must be an integer greater than or equal to minimum.")
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const token = localStorage.getItem("token")
@@ -115,6 +131,8 @@ export default function CreateEventPage() {
           website: form.website || undefined,
           registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : undefined,
           participantType: form.participantType,
+          minTeamSize: form.participantType === "group" ? (form.minTeamSize ? Number(form.minTeamSize) : 1) : undefined,
+          maxTeamSize: form.participantType === "group" ? (form.maxTeamSize ? Number(form.maxTeamSize) : undefined) : undefined,
           contactName: form.contactName || undefined,
           contactEmail: form.contactEmail || undefined,
           contactPhone: form.contactPhone || undefined,
@@ -229,6 +247,34 @@ export default function CreateEventPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {form.participantType === "group" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="minTeamSize">Minimum Team Members</Label>
+                      <Input
+                        id="minTeamSize"
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder="e.g., 2"
+                        value={form.minTeamSize}
+                        onChange={(e) => update("minTeamSize", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxTeamSize">Maximum Team Members</Label>
+                      <Input
+                        id="maxTeamSize"
+                        type="number"
+                        min={form.minTeamSize || 1}
+                        step={1}
+                        placeholder="e.g., 6"
+                        value={form.maxTeamSize}
+                        onChange={(e) => update("maxTeamSize", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="contactName">Organizer Contact Name</Label>
