@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TrendingUp, Users, Trophy, Code, Activity, BarChart3, PieChart, LineChart, Target } from "lucide-react"
+import { ResponsiveContainer, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
 interface StatCard {
   title: string
@@ -17,7 +18,21 @@ interface StatCard {
   prefix?: string
 }
 
-export function InteractiveStatsDashboard() {
+interface AnalyticsData {
+  activeEvents: number;
+  totalParticipants: number;
+  projectsSubmitted: number;
+  successRate: number;
+  engagementRate: number;
+  teamsFormed: number;
+  changes: {
+    participants: number;
+    submissions: number;
+  };
+  lastUpdated: string;
+}
+
+export function InteractiveStatsDashboard({ eventId }: { eventId?: string }) {
   const [stats, setStats] = useState<StatCard[]>([
     { title: "Active Events", value: 0, change: 0, icon: Activity, color: "from-blue-500 to-cyan-500" },
     { title: "Total Participants", value: 0, change: 0, icon: Users, color: "from-purple-500 to-pink-500" },
@@ -27,50 +42,125 @@ export function InteractiveStatsDashboard() {
 
   const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d">("24h")
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [trends, setTrends] = useState<{ label: string; count: number }[]>([])
+  const [trendsLoading, setTrendsLoading] = useState(false)
 
-  const targetValues = {
-    "24h": [12, 1247, 89, 94],
-    "7d": [45, 8934, 567, 96],
-    "30d": [156, 34567, 2134, 98],
+  // Fetch real-time analytics data
+  const fetchAnalyticsData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const dashUrl = new URL('http://localhost:4000/api/analytics/dashboard')
+      if (eventId) dashUrl.searchParams.set('eventId', eventId)
+      const response = await fetch(dashUrl.toString())
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      if (result.success && result.data) {
+        const data: AnalyticsData = result.data
+        
+        // Update stats with real data
+        const newStats = [
+          { 
+            title: "Active Events", 
+            value: data.activeEvents, 
+            change: data.activeEvents > 0 ? 2.0 : 0, 
+            icon: Activity, 
+            color: "from-blue-500 to-cyan-500" 
+          },
+          { 
+            title: "Total Participants", 
+            value: data.totalParticipants, 
+            change: data.changes.participants, 
+            icon: Users, 
+            color: "from-purple-500 to-pink-500" 
+          },
+          { 
+            title: "Projects Submitted", 
+            value: data.projectsSubmitted, 
+            change: data.changes.submissions, 
+            icon: Code, 
+            color: "from-green-500 to-emerald-500" 
+          },
+          { 
+            title: "Success Rate", 
+            value: data.successRate, 
+            change: data.successRate > 90 ? 1.2 : 0.5, 
+            icon: Trophy, 
+            color: "from-amber-500 to-orange-500", 
+            suffix: "%" 
+          },
+        ]
+        
+        setStats(newStats)
+        setLastUpdated(new Date(data.lastUpdated).toLocaleTimeString())
+      }
+    } catch (err) {
+      console.error('Error fetching analytics data:', err)
+      setError('Failed to load analytics data')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const changes = {
-    "24h": [+2, +156, +12, +1.2],
-    "7d": [+8, +1234, +89, +2.1],
-    "30d": [+23, +4567, +234, +1.8],
+  // Fetch participation trends for selected timeframe
+  const fetchTrendsData = async (timeframe: "24h" | "7d" | "30d") => {
+    try {
+      setTrendsLoading(true)
+      const url = new URL('http://localhost:4000/api/analytics/trends')
+      url.searchParams.set('timeframe', timeframe)
+      if (eventId) url.searchParams.set('eventId', eventId)
+      const res = await fetch(url.toString())
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      const json = await res.json()
+      if (json.success && json.data?.trends) {
+        const mapped = (json.data.trends as Array<{ _id: number; count: number; date?: string }>)
+          .map((t) => ({
+            label: String(t._id),
+            count: t.count || 0,
+          }))
+        setTrends(mapped)
+      }
+    } catch (e) {
+      console.error('Error fetching trends data:', e)
+    } finally {
+      setTrendsLoading(false)
+    }
   }
 
   useEffect(() => {
-    setIsAnimating(true)
-    const targets = targetValues[selectedTimeframe]
-    const changeValues = changes[selectedTimeframe]
+    // Initial fetch
+    fetchAnalyticsData()
+    fetchTrendsData(selectedTimeframe)
+    
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(() => {
+      fetchAnalyticsData()
+      fetchTrendsData(selectedTimeframe)
+    }, 30000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
-    // Animate to new values
-    const duration = 1500
-    const steps = 60
-    const stepTime = duration / steps
+  // Refetch trends when timeframe changes
+  useEffect(() => {
+    fetchTrendsData(selectedTimeframe)
+  }, [selectedTimeframe, eventId])
 
-    let currentStep = 0
-    const timer = setInterval(() => {
-      currentStep++
-      const progress = currentStep / steps
-
-      setStats((prevStats) =>
-        prevStats.map((stat, index) => ({
-          ...stat,
-          value: Math.floor(targets[index] * progress),
-          change: changeValues[index] * progress,
-        })),
-      )
-
-      if (currentStep >= steps) {
-        clearInterval(timer)
-        setIsAnimating(false)
-      }
-    }, stepTime)
-
-    return () => clearInterval(timer)
-  }, [selectedTimeframe])
+  // Animate stats when they change
+  useEffect(() => {
+    if (!isLoading) {
+      setIsAnimating(true)
+      const timer = setTimeout(() => setIsAnimating(false), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [stats, isLoading])
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + "M"
@@ -80,23 +170,37 @@ export function InteractiveStatsDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Timeframe Selector */}
+      {/* Header with Real-time Status */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Platform Analytics</h3>
+        <div>
+          <h3 className="text-lg font-semibold">Platform Analytics</h3>
+          {lastUpdated && (
+            <p className="text-sm text-muted-foreground">
+              Last updated: {lastUpdated}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
-          {(["24h", "7d", "30d"] as const).map((timeframe) => (
-            <Button
-              key={timeframe}
-              variant={selectedTimeframe === timeframe ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedTimeframe(timeframe)}
-              className={selectedTimeframe === timeframe ? "bg-gradient-to-r from-cyan-600 to-blue-600" : ""}
-            >
-              {timeframe}
-            </Button>
-          ))}
+          <Badge variant="secondary" className="bg-green-100 text-green-700">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+            Live Data
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchAnalyticsData}
+            disabled={isLoading}
+          >
+            {isLoading ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -113,7 +217,7 @@ export function InteractiveStatsDashboard() {
                 >
                   <TrendingUp className="w-3 h-3 mr-1" />
                   {stat.change >= 0 ? "+" : ""}
-                  {stat.change.toFixed(1)}
+                  {typeof stat.change === 'number' ? stat.change.toFixed(1) : '0.0'}
                 </Badge>
               </div>
             </CardHeader>
@@ -121,7 +225,11 @@ export function InteractiveStatsDashboard() {
               <div className="space-y-1">
                 <p className="text-2xl font-bold">
                   {stat.prefix}
-                  {formatNumber(stat.value)}
+                  {isLoading ? (
+                    <span className="animate-pulse bg-gray-200 rounded w-16 h-8 inline-block"></span>
+                  ) : (
+                    formatNumber(stat.value)
+                  )}
                   {stat.suffix}
                 </p>
                 <p className="text-sm text-muted-foreground">{stat.title}</p>
@@ -131,7 +239,7 @@ export function InteractiveStatsDashboard() {
               <div className="mt-3 h-1 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full bg-gradient-to-r ${stat.color} transition-all duration-1500 ease-out`}
-                  style={{ width: isAnimating ? "0%" : "100%" }}
+                  style={{ width: isLoading || isAnimating ? "0%" : "100%" }}
                 />
               </div>
             </CardContent>
@@ -149,39 +257,49 @@ export function InteractiveStatsDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-lg font-semibold">Engagement Trends</h4>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Bar Chart
+            <Button
+              variant={selectedTimeframe === '24h' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTimeframe('24h')}
+            >
+              24h
             </Button>
-            <Button variant="outline" size="sm">
-              <LineChart className="w-4 h-4 mr-2" />
-              Line Chart
+            <Button
+              variant={selectedTimeframe === '7d' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTimeframe('7d')}
+            >
+              7d
             </Button>
-            <Button variant="outline" size="sm">
-              <PieChart className="w-4 h-4 mr-2" />
-              Pie Chart
+            <Button
+              variant={selectedTimeframe === '30d' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTimeframe('30d')}
+            >
+              30d
             </Button>
           </div>
         </div>
 
-        {/* Simulated Chart Area */}
-        <div className="h-64 bg-gradient-to-br from-slate-50 to-cyan-50 rounded-lg flex items-center justify-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10" />
-          <div className="text-center z-10">
-            <div className="w-16 h-16 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <BarChart3 className="w-8 h-8 text-white" />
+        {/* Real-time Chart Area */}
+        <div className="h-64">
+          {trendsLoading ? (
+            <div className="h-full bg-gradient-to-br from-slate-50 to-cyan-50 rounded-lg animate-pulse" />
+          ) : trends.length === 0 ? (
+            <div className="h-full bg-slate-50 rounded-lg flex items-center justify-center">
+              <p className="text-sm text-slate-500">No trend data available</p>
             </div>
-            <p className="text-lg font-semibold text-slate-700">Interactive Charts</p>
-            <p className="text-sm text-slate-500">Real-time data visualization coming soon</p>
-          </div>
-
-          {/* Animated Elements */}
-          <div className="absolute top-4 right-4 w-12 h-12 bg-white/80 rounded-full flex items-center justify-center animate-bounce">
-            <TrendingUp className="w-6 h-6 text-green-500" />
-          </div>
-          <div className="absolute bottom-4 left-4 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center animate-bounce delay-300">
-            <Target className="w-5 h-5 text-blue-500" />
-          </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <RLineChart data={trends} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#06b6d4" strokeWidth={2} dot={false} />
+              </RLineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </Card>
     </div>
