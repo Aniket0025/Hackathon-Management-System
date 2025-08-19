@@ -13,6 +13,7 @@ const analyticsRoutes = require('./routes/analytics');
 const communityRoutes = require('./routes/community');
 const submissionRoutes = require('./routes/submissions');
 const mailRoutes = require('./routes/mail');
+const judgesRoutes = require('./routes/judges');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -81,6 +82,7 @@ app.use('/api/submissions', submissionRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/mail', mailRoutes);
+app.use('/api/judges', judgesRoutes);
 
 // 404 and error handler
 app.use(notFound);

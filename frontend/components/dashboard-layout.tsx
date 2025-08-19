@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -29,7 +30,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
-const navigation = [
+const BASE_NAV = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "Events", href: "/dashboard/events", icon: Calendar },
   { name: "Participants", href: "/dashboard/participants", icon: Users },
@@ -40,80 +41,144 @@ const navigation = [
 
 interface DashboardLayoutProps {
   children: React.ReactNode
+  hideSidebar?: boolean
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, hideSidebar = false }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
+  const [isAuthed, setIsAuthed] = useState(false)
+  const pathname = usePathname()
+  const isActive = (href: string) => {
+    if (!pathname) return false
+    if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+    return pathname === href || pathname.startsWith(href + "/")
+  }
+
+  useEffect(() => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      setIsAuthed(!!token)
+    } catch {
+      setIsAuthed(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const loadRole = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) { setRole(null); return }
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) { setRole(null); return }
+        const me = await res.json()
+        const r = me?.user?.role ?? null
+        setRole(r)
+      } catch {
+        setRole(null)
+      }
+    }
+    loadRole()
+  }, [isAuthed])
+
+  const navigation = useMemo(() => {
+    const items = [...BASE_NAV]
+    // Insert Evaluations after Dashboard for organizer or judge roles
+    if (role === 'organizer' || role === 'judge') {
+      const exists = items.some((i) => i.href === '/dashboard/judge/evaluations')
+      if (!exists) {
+        items.splice(1, 0, { name: 'Evaluations', href: '/dashboard/judge/evaluations', icon: Trophy })
+      }
+    }
+    return items
+  }, [role])
 
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile sidebar */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-64 p-0">
-          <div className="flex h-full flex-col">
-            <div className="flex h-16 items-center gap-2 px-6 border-b">
-              <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
-              <span className="text-xl font-bold text-foreground font-sans">HackHost</span>
+      {!hideSidebar && (
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <div className="flex h-full flex-col">
+              <div className="flex h-16 items-center gap-2 px-6 border-b">
+                <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
+                <span className="text-xl font-bold text-foreground font-sans">HackHost</span>
+              </div>
+              <nav className="flex-1 space-y-1 px-4 py-4">
+                {navigation.map((item) => {
+                  const active = isActive(item.href)
+                  const base = "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors font-serif"
+                  const cls = active
+                    ? `${base} bg-accent text-accent-foreground`
+                    : `${base} text-muted-foreground hover:bg-accent hover:text-accent-foreground`
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={cls}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.name}
+                    </Link>
+                  )
+                })}
+              </nav>
             </div>
-            <nav className="flex-1 space-y-1 px-4 py-4">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors font-serif"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </SheetContent>
-      </Sheet>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Desktop sidebar */}
+      {!hideSidebar && (
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r bg-card px-6">
           <div className="flex h-16 shrink-0 items-center gap-2">
             <img src="/hackhost-logo.png" alt="HackHost" className="h-8 w-auto rounded" />
-            <span className="text-xl font-bold text-foreground font-sans">HackHost</span>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        className="flex items-center gap-x-3 rounded-md p-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors font-serif"
-                      >
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
+                  {navigation.map((item) => {
+                    const active = isActive(item.href)
+                    const base = "flex items-center gap-x-3 rounded-md p-2 text-sm font-medium transition-colors font-serif"
+                    const cls = active
+                      ? `${base} bg-accent text-accent-foreground`
+                      : `${base} text-muted-foreground hover:bg-accent hover:text-accent-foreground`
+                    return (
+                      <li key={item.name}>
+                        <Link href={item.href} className={cls}>
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          {item.name}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               </li>
             </ul>
           </nav>
         </div>
       </div>
+      )}
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className={hideSidebar ? undefined : "lg:pl-64"}>
         {/* Top bar */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b bg-background px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Open sidebar</span>
-          </Button>
+          {!hideSidebar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open sidebar</span>
+            </Button>
+          )}
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex flex-1"></div>

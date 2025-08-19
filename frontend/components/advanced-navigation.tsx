@@ -35,15 +35,17 @@ interface NavigationProps {
   currentPath?: string
 }
 
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> }
+
 // Static nav items to avoid re-creation on every render
-const NAV_ITEMS = [
+const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/events", label: "Events", icon: Calendar },
   { href: "/teams", label: "Teaming", icon: Users },
   { href: "/my-apply", label: "My Apply", icon: Users },
   { href: "/community", label: "Community", icon: MessageSquare },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-] as const
+]
 
 const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   const pathname = usePathname()
@@ -146,13 +148,25 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   const clearAll = () => setNotifItems([])
 
   // Hide specific items for unauthenticated users; move '/my-apply' into profile dropdown
-  const visibleItems = navigationItems.filter((item) => {
+  const baseVisibleItems = navigationItems.filter((item) => {
     if (item.href === '/my-apply') return false
     if (!isAuthed && (item.href === '/teams' || item.href === '/analytics')) return false
     if (role === 'organizer' && item.href === '/teams') return false
     if (role === 'judge' && item.href === '/teams') return false
     return true
   })
+
+  // Inject Judges section for organizers
+  const visibleItems = useMemo(() => {
+    const items = [...baseVisibleItems]
+    if (role === 'organizer') {
+      const already = items.some((i) => i.href === '/dashboard/organizer/judges')
+      if (!already) {
+        items.push({ href: '/dashboard/organizer/judges', label: 'Judges', icon: Users })
+      }
+    }
+    return items
+  }, [baseVisibleItems, role])
 
   return (
     <header

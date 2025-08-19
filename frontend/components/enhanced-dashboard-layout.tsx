@@ -39,13 +39,8 @@ export default function EnhancedDashboardLayout({ children, userRole = "particip
 
   const navigation = {
     organizer: [
-      { name: "Dashboard", href: "/dashboard", icon: Home },
-      { name: "Events", href: "/dashboard/events", icon: Calendar },
-      { name: "Participants", href: "/dashboard/participants", icon: Users },
-      { name: "Submissions", href: "/dashboard/submissions", icon: FileText },
-      { name: "Analytics", href: "/dashboard/analytics", icon: TrendingUp },
-      { name: "Communications", href: "/dashboard/communications", icon: MessageSquare },
-      { name: "Settings", href: "/dashboard/settings", icon: Settings },
+      { name: "Judges", href: "/dashboard/organizer/judges", icon: Users },
+      { name: "Evaluations", href: "/dashboard/organizer/evaluations", icon: Trophy },
     ],
     participant: [
       { name: "Dashboard", href: "/dashboard/participant", icon: Home },
