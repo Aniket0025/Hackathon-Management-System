@@ -11,6 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+
 import {
   Bell,
   Search,
@@ -56,6 +58,8 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
   const lastScrolled = useRef<boolean>(false)
   const [isAuthed, setIsAuthed] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const [firstName, setFirstName] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const onScroll = () => {
@@ -94,14 +98,22 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
     const loadRole = async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-        if (!token) { setRole(null); return }
+        if (!token) { setRole(null); setFirstName(null); setAvatarUrl(null); return }
         const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
         const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-        if (!res.ok) { setRole(null); return }
+        if (!res.ok) { setRole(null); setFirstName(null); setAvatarUrl(null); return }
         const me = await res.json()
-        setRole(me?.user?.role ?? null)
+        const r = me?.user?.role ?? null
+        const fullName = me?.user?.firstName ?? me?.user?.name ?? null
+        const fName = typeof fullName === 'string' ? (fullName.split(" ")[0] || fullName) : null
+        const avatar = me?.user?.avatarUrl ?? me?.user?.avatar?.url ?? null
+        setRole(r)
+        setFirstName(fName)
+        setAvatarUrl(typeof avatar === 'string' && avatar.length > 0 ? avatar : null)
       } catch {
         setRole(null)
+        setFirstName(null)
+        setAvatarUrl(null)
       }
     }
     loadRole()
@@ -220,16 +232,44 @@ const AdvancedNavigationComponent = ({ currentPath = "/" }: NavigationProps) => 
             {/* Auth Actions (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
               {isAuthed ? (
-                <>
-                  <Link href="/profile">
-                    <Button variant="outline" size="sm" className="min-h-[40px] px-4">
-                      <User className="w-4 h-4 mr-2" /> Profile
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-[40px] min-w-[40px] rounded-full pl-1 pr-2"
+                      aria-label="User menu"
+                    >
+                      <div className="flex items-center">
+                        <Avatar className="size-8">
+                          <AvatarImage src={avatarUrl ?? ""} alt={firstName ?? "User"} />
+                          <AvatarFallback>{(firstName?.[0] ?? "U").toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="ml-2 hidden xl:flex flex-col items-start leading-tight">
+                          <span className="text-sm font-medium text-slate-900">{firstName ?? "User"}</span>
+                          {role && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
+                              {role}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown className="w-4 h-4 ml-2 text-slate-500" />
+                      </div>
                     </Button>
-                  </Link>
-                  <Button size="sm" className="min-h-[40px] px-4" onClick={handleLogout}>
-                    Logout
-                  </Button>
-                </>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex items-center">
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <>
                   <Link href="/auth/login">
