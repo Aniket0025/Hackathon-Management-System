@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import EnhancedDashboardLayout from "@/components/enhanced-dashboard-layout"
+import { formatDateRange } from "@/lib/date"
 
 const mockEvents = [
   {
@@ -173,8 +174,7 @@ export default function EventsPage() {
                         <div className="flex items-center gap-4 text-sm text-slate-600">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            {new Date(event.startDate).toLocaleDateString()} -{" "}
-                            {new Date(event.endDate).toLocaleDateString()}
+                            {formatDateRange(event.startDate, event.endDate)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="w-4 h-4" />

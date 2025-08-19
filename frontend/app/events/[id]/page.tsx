@@ -34,6 +34,8 @@ type EventItem = {
   rounds?: Array<{ title: string; description?: string; startDate: string; endDate: string }>
   prizes?: Array<{ type: 'cash' | 'certificate' | 'goodies' | 'other'; title: string; amount?: number }>
   sponsors?: Array<{ title: string; bannerUrl?: string }>
+  minTeamSize?: number
+  maxTeamSize?: number
 }
 
 export default function EventDetailsPage() {
@@ -236,6 +238,9 @@ export default function EventDetailsPage() {
                 )}
                 {event.participantType && (
                   <div className="md:col-span-1">Participant Type: {event.participantType === "individual" ? "Individual" : "Group"}</div>
+                )}
+                {event.participantType === "group" && typeof event.minTeamSize === "number" && typeof event.maxTeamSize === "number" && (
+                  <div className="md:col-span-1">Team Size: {event.minTeamSize} - {event.maxTeamSize} members</div>
                 )}
                 {typeof event.registrationLimit === "number" && (
                   <div className="md:col-span-1">Registration Limit: {event.registrationLimit}</div>

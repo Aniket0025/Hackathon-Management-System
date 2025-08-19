@@ -145,11 +145,12 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   }
   const clearAll = () => setNotifItems([])
 
-  // Hide specific items for unauthenticated users; also keep organizer-specific rules
+  // Hide specific items for unauthenticated users; move '/my-apply' into profile dropdown
   const visibleItems = navigationItems.filter((item) => {
-    if (!isAuthed && (item.href === '/teams' || item.href === '/my-apply' || item.href === '/analytics')) return false
-    if (role === 'organizer' && (item.href === '/my-apply' || item.href === '/teams')) return false
-    if (role === 'judge' && (item.href === '/teams' || item.href === '/my-apply')) return false
+    if (item.href === '/my-apply') return false
+    if (!isAuthed && (item.href === '/teams' || item.href === '/analytics')) return false
+    if (role === 'organizer' && item.href === '/teams') return false
+    if (role === 'judge' && item.href === '/teams') return false
     return true
   })
 
@@ -283,6 +284,12 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                         Profile
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-apply" className="flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        My Apply
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
                       Logout
@@ -339,10 +346,15 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
 
             <div className="border-t pt-4 mt-4">
               {isAuthed ? (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3">
                   <Link href="/profile" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="outline" className="w-full min-h-[44px]">
                       <User className="w-4 h-4 mr-2" /> Profile
+                    </Button>
+                  </Link>
+                  <Link href="/my-apply" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full min-h-[44px]">
+                      <Users className="w-4 h-4 mr-2" /> My Apply
                     </Button>
                   </Link>
                   <Button
