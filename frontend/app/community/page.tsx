@@ -204,7 +204,7 @@ export default function CommunityPage() {
                 {filtered.map((p) => (
                   <Card
                     key={p.id}
-                    className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                    className="border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm"
                   >
                     <CardHeader>
                       <CardTitle>{p.title}</CardTitle>
@@ -217,11 +217,16 @@ export default function CommunityPage() {
                       <div className="flex items-center justify-between">
                         <Badge
                           variant="secondary"
-                          className="bg-slate-100 border border-slate-200 text-slate-700 inline-flex items-center"
+                          className="bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs hover:bg-emerald-100/70 transition-colors inline-flex items-center"
                         >
                           <ThumbsUp className="w-3 h-3 mr-1" /> {p.likes} likes
                         </Badge>
-                        <Button size="sm" variant="outline" onClick={() => likePost(p.id)}>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => likePost(p.id)}
+                          className="shadow-xs hover:shadow-sm"
+                        >
                           <ThumbsUp className="w-4 h-4 mr-2" /> Like
                         </Button>
                       </div>

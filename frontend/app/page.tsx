@@ -252,7 +252,7 @@ export default function HomePage() {
               {advancedFeatures.map((feature, index) => (
                 <Card
                   key={index}
-                  className={`group cursor-pointer transition-all duration-300 touch-manipulation border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
+                  className={`border border-slate-200 shadow-sm ${
                     activeFeature === index
                       ? "bg-white ring-1 ring-cyan-500"
                       : "bg-white"
@@ -262,12 +262,12 @@ export default function HomePage() {
                   <CardHeader className="pb-3 p-4 md:p-6">
                     <div className="flex items-center gap-3 md:gap-4">
                       <div
-                        className={`w-10 md:w-12 h-10 md:h-12 rounded-xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform`}
+                        className={`w-10 md:w-12 h-10 md:h-12 rounded-xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-sm flex-shrink-0`}
                       >
                         <feature.icon className="w-5 md:w-6 h-5 md:h-6 text-white" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base md:text-lg font-bold text-slate-900 leading-tight group-hover:text-cyan-700">
+                        <CardTitle className="text-base md:text-lg font-bold text-slate-900 leading-tight">
                           {feature.title}
                         </CardTitle>
                         <CardDescription className="text-slate-600 text-sm md:text-base leading-relaxed">
@@ -396,15 +396,15 @@ export default function HomePage() {
             ].map((feature, index) => (
               <Card
                 key={index}
-                className="group hover:shadow-2xl transition-all duration-500 transform hover:scale-105 active:scale-95 border-0 bg-gradient-to-br from-white to-slate-50 touch-manipulation"
+                className="border-0 bg-gradient-to-br from-white to-slate-50"
               >
                 <CardHeader className="pb-4 md:pb-6 p-4 md:p-6">
                   <div
-                    className={`w-12 md:w-16 h-12 md:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-lg mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300`}
+                    className={`w-12 md:w-16 h-12 md:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-lg mb-3 md:mb-4`}
                   >
                     <feature.icon className="w-6 md:w-8 h-6 md:h-8 text-white" />
                   </div>
-                  <CardTitle className="text-lg md:text-xl font-bold text-slate-900 group-hover:text-cyan-600 transition-colors leading-tight">
+                  <CardTitle className="text-lg md:text-xl font-bold text-slate-900 leading-tight">
                     {feature.title}
                   </CardTitle>
                   <CardDescription className="text-slate-600 leading-relaxed text-sm md:text-base">

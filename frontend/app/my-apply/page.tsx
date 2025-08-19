@@ -323,7 +323,7 @@ export default function MyApplyPage() {
               {appliedEvents.map((e) => (
                 <Card
                   key={e.id}
-                  className="hover:shadow-sm transition-shadow cursor-pointer"
+                  className="shadow-sm"
                   onClick={() => router.push(`/events/${e.id}/submission`)}
                   role="link"
                   aria-label={`Open submission for ${e.name}`}
