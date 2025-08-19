@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +31,7 @@ type EventItem = {
 export default function EventDetailsPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
+  const router = useRouter()
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -181,8 +182,23 @@ export default function EventDetailsPage() {
               </div>
               <div className="pt-2">
                 {role !== 'organizer' && (
-                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                    <Link prefetch href={`/events/${event._id}/register`}>Register</Link>
+                  <Button
+                    className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                    onClick={() => {
+                      try {
+                        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                        const nextUrl = `/events/${event._id}/register`
+                        if (!token) {
+                          router.push(`/auth/login?next=${encodeURIComponent(nextUrl)}`)
+                          return
+                        }
+                        router.push(nextUrl)
+                      } catch {
+                        router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}/register`)}`)
+                      }
+                    }}
+                  >
+                    Register
                   </Button>
                 )}
                 {role === 'organizer' && (

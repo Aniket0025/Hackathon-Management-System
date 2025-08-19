@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Calendar, Plus, MapPin, Users, Clock } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 type EventItem = {
   _id: string
@@ -28,6 +29,7 @@ export default function EventsPage() {
   const [initialized, setInitialized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   // Load current user info (role, id)
   useEffect(() => {
@@ -153,8 +155,23 @@ export default function EventsPage() {
                 </CardHeader>
                 <CardContent className="flex gap-3">
                   {role !== "organizer" && (
-                    <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                      <Link prefetch href={`/events/${ev._id}/register`}>Register</Link>
+                    <Button
+                      size="sm"
+                      className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                      onClick={() => {
+                        try {
+                          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                          if (!token) {
+                            router.push(`/auth/login?next=${encodeURIComponent(`/events/${ev._id}/register`)}`)
+                            return
+                          }
+                          router.push(`/events/${ev._id}/register`)
+                        } catch {
+                          router.push(`/auth/login?next=${encodeURIComponent(`/events/${ev._id}/register`)}`)
+                        }
+                      }}
+                    >
+                      Register
                     </Button>
                   )}
                   {role === "organizer" && (

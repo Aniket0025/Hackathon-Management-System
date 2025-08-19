@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Zap, Mail, Lock, User, Github } from "lucide-react"
+import { Mail, Lock, User, Github, Trophy, Calendar as CalendarIcon, Users as UsersIcon } from "lucide-react"
 import Link from "next/link"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function RegisterPage() {
   const termsRef = useRef<HTMLDivElement | null>(null)
@@ -21,8 +21,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "",
-    organization: "",
+    role: "participant", // default selection
     agreeToTerms: false,
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -42,7 +41,7 @@ export default function RegisterPage() {
       return
     }
     if (!formData.role) {
-      setError("Please select your primary role.")
+      setError("Please select your role.")
       return
     }
     if (formData.password !== formData.confirmPassword) {
@@ -61,7 +60,6 @@ export default function RegisterPage() {
           email: formData.email,
           password: formData.password,
           role: formData.role,
-          organization: formData.organization || undefined,
         }),
       })
 
@@ -134,6 +132,55 @@ export default function RegisterPage() {
                   {success}
                 </div>
               )}
+
+              {/* Role selection at top */}
+              <div className="space-y-3">
+                <Label className="font-serif">Choose Role</Label>
+                <Tabs value={formData.role} onValueChange={(v) => updateFormData("role", v)}>
+                  <TabsList className="w-full grid grid-cols-3 h-10 rounded-2xl">
+                    <TabsTrigger value="participant" className="rounded-xl">Participant</TabsTrigger>
+                    <TabsTrigger value="organizer" className="rounded-xl">Organizer</TabsTrigger>
+                    <TabsTrigger value="judge" className="rounded-xl">Judge</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <div className="rounded-xl border bg-cyan-50/60 p-5">
+                  {formData.role === "participant" && (
+                    <div className="text-center space-y-2">
+                      <h3 className="text-lg font-semibold">Join as Participant</h3>
+                      <p className="text-sm text-muted-foreground">Showcase your skills and collaborate with innovators</p>
+                      <div className="flex justify-center pt-1">
+                        <Button variant="secondary" className="bg-violet-600 hover:bg-violet-700 text-white">
+                          <UsersIcon className="mr-2 h-4 w-4" /> Individual & Teams
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {formData.role === "organizer" && (
+                    <div className="text-center space-y-2">
+                      <h3 className="text-lg font-semibold">Join as Organizer</h3>
+                      <p className="text-sm text-muted-foreground">Create and manage amazing innovation events</p>
+                      <div className="flex justify-center pt-1">
+                        <Button variant="secondary" className="bg-emerald-700 hover:bg-emerald-800 text-white">
+                          <CalendarIcon className="mr-2 h-4 w-4" /> Event Management
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {formData.role === "judge" && (
+                    <div className="text-center space-y-2">
+                      <h3 className="text-lg font-semibold">Join as Judge</h3>
+                      <p className="text-sm text-muted-foreground">Evaluate projects and provide valuable feedback</p>
+                      <div className="flex justify-center pt-1">
+                        <Button variant="secondary" className="bg-slate-800 hover:bg-slate-900 text-white">
+                          <Trophy className="mr-2 h-4 w-4" /> Expert Evaluation
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name" className="font-serif">
                   Full Name
@@ -170,35 +217,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role" className="font-serif">
-                  Primary Role
-                </Label>
-                <Select onValueChange={(value) => updateFormData("role", value)}>
-                  <SelectTrigger className="font-serif">
-                    <SelectValue placeholder="Select your primary role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="organizer">Event Organizer</SelectItem>
-                    <SelectItem value="participant">Participant</SelectItem>
-                    <SelectItem value="judge">Judge/Mentor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="organization" className="font-serif">
-                  Organization (Optional)
-                </Label>
-                <Input
-                  id="organization"
-                  type="text"
-                  placeholder="Your company, university, or organization"
-                  value={formData.organization}
-                  onChange={(e) => updateFormData("organization", e.target.value)}
-                  className="font-serif"
-                />
-              </div>
+              
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-serif">
