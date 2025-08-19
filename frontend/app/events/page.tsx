@@ -4,8 +4,11 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
-import { Calendar, Plus, MapPin, Clock } from "lucide-react"
+import { Calendar, Plus, MapPin, Clock, Trash2 } from "lucide-react"
+import { formatDate, formatDateRange } from "@/lib/date"
 import { useRouter } from "next/navigation"
 
 type EventItem = {
@@ -31,6 +34,11 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleteTargetTitle, setDeleteTargetTitle] = useState<string | null>(null)
+  const [confirmText, setConfirmText] = useState("")
+  const [deleting, setDeleting] = useState(false)
 
   // Load current user info (role, id)
   useEffect(() => {
@@ -81,9 +89,44 @@ export default function EventsPage() {
     loadEvents()
   }, [view, userId, initialized])
 
-  const fmtDate = (iso: string) => {
-    const d = new Date(iso)
-    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
+  const openDeleteDialog = (id: string, title?: string) => {
+    setDeleteTargetId(id)
+    setDeleteTargetTitle(title || null)
+    setConfirmText("")
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTargetId) return
+    try {
+      setDeleting(true)
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        setDeleting(false)
+        router.push(`/auth/login?next=${encodeURIComponent('/events')}`)
+        return
+      }
+      const res = await fetch(`${base}/api/events/${deleteTargetId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.message || `Failed to delete (status ${res.status})`)
+      }
+      // Remove from local state
+      setEvents((prev) => prev.filter((e) => e._id !== deleteTargetId))
+      setDeleteDialogOpen(false)
+    } catch (e) {
+      // Optionally you can setError to surface toast; keeping list error separate
+      console.error(e)
+    } finally {
+      setDeleting(false)
+      setConfirmText("")
+      setDeleteTargetId(null)
+      setDeleteTargetTitle(null)
+    }
   }
 
   // Parse a date that may be ISO or mm/dd/yyyy
@@ -212,7 +255,7 @@ export default function EventsPage() {
                     <div className="flex items-center gap-3 text-slate-600 flex-wrap">
                       <span className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        {fmtDate(ev.startDate)} - {fmtDate(ev.endDate)}
+                        {formatDateRange(ev.startDate, ev.endDate)}
                       </span>
                       {ev.location && (
                         <span className="flex items-center gap-1">
@@ -255,6 +298,16 @@ export default function EventsPage() {
                   <Button asChild size="sm" variant="outline" className="transition-colors">
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
+                  {role === 'organizer' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={() => openDeleteDialog(ev._id, ev.title)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> Delete
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -270,6 +323,36 @@ export default function EventsPage() {
           animation: blinkRB 1s step-end infinite;
         }
       `}</style>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete event?</DialogTitle>
+            <DialogDescription>
+              This action permanently deletes the event{deleteTargetTitle ? ` "${deleteTargetTitle}"` : ''}. Type
+              <span className="px-1 mx-1 rounded bg-slate-100 border">confirm</span>
+              to enable deletion.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              placeholder="Type confirm to proceed"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              disabled={confirmText.trim().toLowerCase() !== 'confirm' || deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

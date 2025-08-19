@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, User, Star, ArrowLeft } from "lucide-react"
+import { MapPin, User, Star, ArrowLeft } from "lucide-react"
+import { formatDate, formatDateRange } from "@/lib/date"
 
 type EventItem = {
   _id: string
@@ -44,6 +44,7 @@ export default function EventDetailsPage() {
   const [topTeams, setTopTeams] = useState<Array<{ _id: string; name: string; score?: number }>>([])
   const [teamsError, setTeamsError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  
 
   useEffect(() => {
     if (!id) return
@@ -105,14 +106,7 @@ export default function EventDetailsPage() {
     return () => ctrl.abort()
   }, [id])
 
-  const fmtDate = (iso: string) => {
-    const d = new Date(iso)
-    try {
-      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
-    } catch {
-      return d.toISOString().slice(0, 10)
-    }
-  }
+  
 
   const daysLeft = (iso: string) => {
     const now = new Date()
@@ -129,6 +123,8 @@ export default function EventDetailsPage() {
     if (d <= 7) return <span className={`${base} text-amber-600`}>{`${d} days left`}</span>
     return <span className={`${base} text-emerald-600`}>{`${d} days left`}</span>
   }
+
+  
 
   return (
     <div className="min-h-screen bg-white">
@@ -184,7 +180,7 @@ export default function EventDetailsPage() {
               <div className="flex items-start justify-between gap-4">
                 <CardTitle className="text-3xl font-semibold tracking-tight leading-snug">{event.title}</CardTitle>
                 <div className="text-right">
-                  <div className="text-sm text-slate-900 font-medium">{fmtDate(event.startDate)} - {fmtDate(event.endDate)}</div>
+                  <div className="text-sm text-slate-900 font-medium">{formatDateRange(event.startDate, event.endDate)}</div>
                   {event.registrationDeadline && (
                     <div className="mt-0.5">{deadlineBadge(event.registrationDeadline)}</div>
                   )}
@@ -239,7 +235,7 @@ export default function EventDetailsPage() {
                             {/* content card */}
                             <div className="bg-white/80 border rounded-lg p-4 shadow-sm">
                               <div className="text-base font-semibold">{r.title}</div>
-                              <div className="mt-1 text-sm text-slate-700">Start: {fmtDate(r.startDate)} · End: {fmtDate(r.endDate)}</div>
+                              <div className="mt-1 text-sm text-slate-700">Start: {formatDate(r.startDate)} · End: {formatDate(r.endDate)}</div>
                               {r.description && (
                                 <div className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{r.description}</div>
                               )}
@@ -300,33 +296,30 @@ export default function EventDetailsPage() {
                 {event.contactPhone && <div>Phone: {event.contactPhone}</div>}
               </div>
             )}
-              <div className="border-t pt-6" />
-            {/* Team Performance subsection moved below Organizer Contact */}
-            <div className="pt-6">
-              <div className="flex items-center mb-3">
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500" />
-                </div>
-              </div>
-              {teamsError ? (
-                <div className="text-sm text-red-600">{teamsError}</div>
-              ) : topTeams.length === 0 ? (
-                <div className="text-sm text-slate-600">No teams yet for this event.</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {topTeams.map((t) => (
-                    <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between bg-white/70 hover:bg-white hover:shadow-sm transition">
-                      <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-amber-500" />
-                        <span className="font-medium">{t.name}</span>
-                      </div>
-                      <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
+            {(teamsError || topTeams.length > 0) && (
+              <>
+                <div className="border-t pt-6" />
+                {/* Team Performance subsection moved below Organizer Contact */}
+                <div className="pt-6">
+                  {teamsError ? (
+                    <div className="text-sm text-red-600">{teamsError}</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {topTeams.map((t) => (
+                        <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between bg-white/70 hover:bg-white hover:shadow-sm transition">
+                          <div className="flex items-center gap-2">
+                            <Star className="w-4 h-4 text-amber-500" />
+                            <span className="font-medium">{t.name}</span>
+                          </div>
+                          <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-              <div className="border-t pt-6" />
+                <div className="border-t pt-6" />
+              </>
+            )}
             {/* Actions at the very end */}
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
               {role !== 'organizer' ? (
