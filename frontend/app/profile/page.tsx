@@ -23,7 +23,8 @@ type Me = {
   location?: string
   phone?: string
   bio?: string
-  social?: { github?: string; linkedin?: string; website?: string }
+  social?: { github?: string; linkedin?: string; website?: string 
+  }
 }
 
 export default function ProfilePage() {

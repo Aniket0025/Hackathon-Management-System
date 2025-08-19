@@ -4,11 +4,10 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, MapPin, User, Star, ArrowLeft, Trash2 } from "lucide-react"
+import { MapPin, User, Star, ArrowLeft, Trash2 } from "lucide-react"
 import { formatDate, formatDateRange } from "@/lib/date"
 
 type EventItem = {
@@ -129,6 +128,7 @@ export default function EventDetailsPage() {
     return <span className={`${base} text-emerald-600`}>{`${d} days left`}</span>
   }
 
+  // Delete handler for organizer
   const handleDelete = async () => {
     if (!event?._id) return
     try {
