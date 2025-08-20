@@ -1,5 +1,7 @@
 const Team = require('../models/Team');
 const Event = require('../models/Event');
+const Submission = require('../models/Submission');
+const Review = require('../models/Review');
 
 async function listTeams(req, res, next) {
   try {
@@ -69,4 +71,74 @@ async function joinTeam(req, res, next) {
   }
 }
 
-module.exports = { listTeams, createTeam, joinTeam };
+async function getTeamDetails(req, res, next) {
+  try {
+    const id = req.params.id;
+    const team = await Team.findById(id)
+      .populate('members', 'name email')
+      .lean();
+    if (!team) return res.status(404).json({ message: 'Team not found' });
+
+    // If organizer is logged in, ensure they own the event
+    if (req.user && req.user.role === 'organizer') {
+      const owns = await Event.exists({ _id: team.event, organizer: req.user.id });
+      if (!owns) return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const submissions = await Submission.find({ team: id })
+      .sort({ createdAt: -1 })
+      .select('title description repoUrl docsUrl videoUrl score status createdAt updatedAt')
+      .lean();
+
+    // Average review score
+    const agg = await Review.aggregate([
+      { $match: { team: team._id } },
+      { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } }
+    ]);
+    const averageReview = agg.length ? { average: agg[0].avg, count: agg[0].count } : { average: null, count: 0 };
+
+    res.json({ team, submissions, averageReview });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listTeamReviews(req, res, next) {
+  try {
+    const teamId = req.params.id;
+    const reviews = await Review.find({ team: teamId })
+      .sort({ createdAt: -1 })
+      .populate('judge', 'name email')
+      .select('score feedback createdAt judge submission')
+      .lean();
+    res.json({ reviews });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function addTeamReview(req, res, next) {
+  try {
+    const teamId = req.params.id;
+    const { score, feedback, submission } = req.body || {};
+    if (typeof score !== 'number') return res.status(400).json({ message: 'score is required' });
+
+    // Basic ownership check for organizers was handled in getTeamDetails; here allow judges/organizers
+    const team = await Team.findById(teamId).select('_id event');
+    if (!team) return res.status(404).json({ message: 'Team not found' });
+
+    const doc = await Review.create({
+      team: teamId,
+      event: team.event,
+      submission: submission || undefined,
+      judge: req.user?.id,
+      score,
+      feedback,
+    });
+    res.status(201).json({ review: { id: doc._id } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listTeams, createTeam, joinTeam, getTeamDetails, listTeamReviews, addTeamReview };
