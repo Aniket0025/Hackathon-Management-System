@@ -4,6 +4,7 @@ import { Geist } from "next/font/google"
 import { Manrope } from "next/font/google"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
 import RouteTransition from "@/components/route-transition"
+import { SocketProvider } from "@/components/realtime/socket-provider"
 import "./globals.css"
 
 const geist = Geist({
@@ -48,10 +49,12 @@ export default function RootLayout({
         <link rel="icon" href="/hackhost-logo.png" />
       </head>
       <body className="font-sans min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
-        <AdvancedNavigation />
-        <div className="pt-16 md:pt-20">
-          <RouteTransition>{children}</RouteTransition>
-        </div>
+        <SocketProvider>
+          <AdvancedNavigation />
+          <div className="pt-16 md:pt-20">
+            <RouteTransition>{children}</RouteTransition>
+          </div>
+        </SocketProvider>
       </body>
     </html>
   )

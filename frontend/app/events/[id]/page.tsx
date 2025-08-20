@@ -6,7 +6,9 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin, User, Star, ArrowLeft, Trash2 } from "lucide-react"
 import { formatDate, formatDateRange } from "@/lib/date"
 
@@ -52,6 +54,15 @@ export default function EventDetailsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
+
+  // Notify participants dialog state (organizer only)
+  const [notifyOpen, setNotifyOpen] = useState(false)
+  const [notifyTitle, setNotifyTitle] = useState("")
+  const [notifyMessage, setNotifyMessage] = useState("")
+  const [notifyType, setNotifyType] = useState<"info" | "update" | "alert">("info")
+  const [notifyLink, setNotifyLink] = useState("")
+  const [notifyLoading, setNotifyLoading] = useState(false)
+  const [notifyFeedback, setNotifyFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -113,7 +124,39 @@ export default function EventDetailsPage() {
     return () => ctrl.abort()
   }, [id])
 
-  
+  // Send notification to participants (organizer only)
+  const handleNotifySend = async () => {
+    if (!id) return
+    setNotifyLoading(true)
+    setNotifyFeedback(null)
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) {
+        setNotifyFeedback("You must be logged in")
+        setNotifyLoading(false)
+        return
+      }
+      const res = await fetch(`${base}/api/notifications/broadcast-to-event/${id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ title: notifyTitle, message: notifyMessage, type: notifyType, link: notifyLink })
+        }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || "Failed to send notification")
+      setNotifyFeedback(`Sent to ${data?.recipients ?? 0} participant(s).`)
+      // Reset minimal fields but keep dialog open to show feedback
+      setNotifyTitle("")
+      setNotifyMessage("")
+      setNotifyLink("")
+    } catch (e: any) {
+      setNotifyFeedback(e?.message || "Failed to send notification")
+    } finally {
+      setNotifyLoading(false)
+    }
+  }
 
   const daysLeft = (iso: string) => {
     const now = new Date()
@@ -337,30 +380,6 @@ export default function EventDetailsPage() {
                 {event.contactPhone && <div>Phone: {event.contactPhone}</div>}
               </div>
             )}
-            {(teamsError || topTeams.length > 0) && (
-              <>
-                <div className="border-t pt-6" />
-                {/* Team Performance subsection moved below Organizer Contact */}
-                <div className="pt-6">
-                  {teamsError ? (
-                    <div className="text-sm text-red-600">{teamsError}</div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {topTeams.map((t) => (
-                        <div key={t._id} className="border rounded-lg p-4 flex items-center justify-between bg-white/70 hover:bg-white hover:shadow-sm transition">
-                          <div className="flex items-center gap-2">
-                            <Star className="w-4 h-4 text-amber-500" />
-                            <span className="font-medium">{t.name}</span>
-                          </div>
-                          <div className="text-xl font-bold">{typeof t.score === 'number' ? t.score : '—'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="border-t pt-6" />
-              </>
-            )}
             {/* Actions at the very end */}
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
               {role !== 'organizer' ? (
@@ -387,6 +406,12 @@ export default function EventDetailsPage() {
                   <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                     <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setNotifyFeedback(null); setNotifyOpen(true) }}
+                  >
+                    Notify Participants
+                  </Button>
                   <Button asChild variant="outline">
                     <Link prefetch href={`/events/${event._id}/edit`}>Edit</Link>
                   </Button>
@@ -403,6 +428,53 @@ export default function EventDetailsPage() {
         </Card>
       )}
     </main>
+    {/* Notify Participants Dialog */}
+    <Dialog open={notifyOpen} onOpenChange={setNotifyOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Notify participants</DialogTitle>
+          <DialogDescription>
+            Send a notification to all enrolled participants (team members) of this event.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2">
+            <label className="text-sm font-medium">Title</label>
+            <Input value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} placeholder="e.g., Schedule Update" />
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            <label className="text-sm font-medium">Message</label>
+            <Textarea value={notifyMessage} onChange={(e) => setNotifyMessage(e.target.value)} placeholder="Include details for participants" rows={5} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Type</label>
+              <Select value={notifyType} onValueChange={(v) => setNotifyType(v as any)}>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="info">Info</SelectItem>
+                  <SelectItem value="update">Update</SelectItem>
+                  <SelectItem value="alert">Alert</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Link (optional)</label>
+              <Input value={notifyLink} onChange={(e) => setNotifyLink(e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          {notifyFeedback && (
+            <div className="text-sm rounded border p-2 bg-slate-50 text-slate-700">{notifyFeedback}</div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setNotifyOpen(false)} disabled={notifyLoading}>Close</Button>
+          <Button onClick={handleNotifySend} disabled={notifyLoading || !notifyTitle.trim()} className="bg-cyan-600 hover:bg-cyan-700">
+            {notifyLoading ? 'Sending…' : 'Send Notification'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     {/* Delete Confirmation Dialog */}
     <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
       <DialogContent>
