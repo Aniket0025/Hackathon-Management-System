@@ -47,8 +47,25 @@ export default function RootLayout({
         ) : null}
         {/* Fallback favicon for older browsers */}
         <link rel="icon" href="/hackhost-logo.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                try {
+                  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                  var lowMem = (navigator.deviceMemory && navigator.deviceMemory <= 4);
+                  var lowCPU = (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+                  var mobile = /Mobi|Android/i.test(navigator.userAgent);
+                  if (reduce || lowMem || lowCPU || mobile) {
+                    document.documentElement.classList.add('perf-lite');
+                  }
+                } catch(e){}
+              })();
+            `,
+          }}
+        />
       </head>
-      <body className="font-sans min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 ambient-bg">
+      <body className="font-sans min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 ambient-bg texture-noise no-grid beam-lights">
         <SocketProvider>
           <AdvancedNavigation />
           <div className="pt-16 md:pt-20">
