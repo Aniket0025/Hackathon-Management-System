@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,7 @@ type Answer = { id?: string; body: string; author: any; createdAt?: string; upvo
 type Question = { id: string; title: string; body: string; author: string; createdAt?: string; tags?: string[]; upvotes?: number; solved?: boolean; answers?: Answer[] }
 
 export default function CommunityPage() {
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -210,11 +212,11 @@ export default function CommunityPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       if (!token) {
-        window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+        router.push("/auth/login?next=" + encodeURIComponent("/community"))
         return
       }
     } catch {
-      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+      router.push("/auth/login?next=" + encodeURIComponent("/community"))
       return
     }
 
@@ -250,7 +252,7 @@ export default function CommunityPage() {
   // Q&A: upvote a question (optimistic)
   const upvoteQuestion = async (qid: string) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    if (!token) { router.push('/auth/login?next=' + encodeURIComponent('/community')); return }
     // optimistic
     setQuestions(prev => prev.map(q => q.id === qid ? { ...q, upvotes: (q.upvotes || 0) + 1 } : q))
     try {
