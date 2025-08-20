@@ -201,7 +201,11 @@ export default function EventsPage() {
           )}
           {role === "organizer" && (
             <div className="mt-6 flex flex-col items-center gap-3">
-              <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+              <Button
+                asChild
+                variant="cta"
+                className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200"
+              >
                 <Link href="/events/create">
                   <Plus className="w-4 h-4 mr-2" />Create Event
                 </Link>
@@ -238,7 +242,7 @@ export default function EventsPage() {
                 `${showRegisteredOnly
                   ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-600/40 shadow-2xl border border-emerald-400/60 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80'
                   : 'bg-white text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400'} ` +
-                'transform-gpu transition-all duration-300 will-change-transform hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-3deg)_translateY(-2px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
+                'transform-gpu transition-all duration-300 will-change-transform hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-3deg)_translateY(-2px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-100 disabled:text-slate-700 disabled:border-slate-300 disabled:bg-white'
               }
               onClick={() => setShowRegisteredOnly((v) => !v)}
               disabled={!authedEmail}
@@ -307,7 +311,7 @@ export default function EventsPage() {
                         size="sm"
                         variant="outline"
                         disabled
-                        className="bg-white text-slate-800 border-2 border-slate-300 hover:bg-white"
+                        className="bg-white text-slate-800 border-2 border-slate-300 hover:bg-white disabled:opacity-100"
                       >
                         Registered
                       </Button>
