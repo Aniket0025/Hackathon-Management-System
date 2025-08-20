@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Upload, ArrowLeft } from "lucide-react"
+import { Upload } from "lucide-react"
 
 type EventLite = { _id: string; title: string }
 type RegistrationLite = {
@@ -178,17 +178,12 @@ export default function SubmissionsPage() {
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 text-center">
           <div>
-            <Badge className="mb-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-transparent">Submission</Badge>
+            <Badge className="mb-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-transparent mx-auto">Submission</Badge>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{event?.title || "Project Submission"}</h1>
             <div className="text-sm text-slate-600 mt-1">{eventId ? `Event ID: ${eventId}` : "Choose an event to submit to"}</div>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/my-apply">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to My Apply
-            </Link>
-          </Button>
         </div>
 
         {error && (
