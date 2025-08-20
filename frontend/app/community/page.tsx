@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Users, ThumbsUp } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -27,6 +27,8 @@ export default function CommunityPage() {
   const [annTitle, setAnnTitle] = useState("")
   const [annBody, setAnnBody] = useState("")
   const [annBanner, setAnnBanner] = useState<File | null>(null)
+  const [annPinned, setAnnPinned] = useState(false)
+  const [annTags, setAnnTags] = useState("")
 
   const [open, setOpen] = useState(false)
   const [isAuthed, setIsAuthed] = useState(false)
@@ -45,6 +47,8 @@ export default function CommunityPage() {
   const [qBody, setQBody] = useState("")
   const [qTags, setQTags] = useState("")
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({})
+  const [qaTagFilter, setQaTagFilter] = useState<string | null>(null)
+  const [qaSearch, setQaSearch] = useState("")
 
   // Prefer human name/email if author is an object; otherwise fallback to string
   const displayAuthorName = (val: any): string => {
@@ -123,6 +127,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 25000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -146,6 +152,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 25000)
+    return () => clearInterval(id)
   }, [])
 
   // Load announcements
@@ -168,6 +176,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
   }, [])
 
   const totals = useMemo(() => {
@@ -237,6 +247,66 @@ export default function CommunityPage() {
     }
   }
 
+  // Q&A: upvote a question (optimistic)
+  const upvoteQuestion = async (qid: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? { ...q, upvotes: (q.upvotes || 0) + 1 } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? { ...q, upvotes: Math.max(0, (q.upvotes || 1) - 1) } : q))
+    }
+  }
+
+  // Q&A: upvote an answer (optimistic)
+  const upvoteAnswer = async (qid: string, aid: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? {
+      ...q,
+      answers: (q.answers || []).map(a => a.id === aid ? { ...a, upvotes: (a.upvotes || 0) + 1 } : a)
+    } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/answers/${aid}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? {
+        ...q,
+        answers: (q.answers || []).map(a => a.id === aid ? { ...a, upvotes: Math.max(0, (a.upvotes || 1) - 1) } : a)
+      } : q))
+    }
+  }
+
+  // Q&A: mark solved/unsolved (organizer/admin)
+  const toggleSolved = async (qid: string, nextVal?: boolean) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    const current = questions.find(q => q.id === qid)?.solved || false
+    const target = typeof nextVal === 'boolean' ? nextVal : !current
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? { ...q, solved: target } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/solved`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ solved: target })
+      })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? { ...q, solved: current } : q))
+    }
+  }
+
   const submitPost = async () => {
     if (!canSubmit) return
     const draft: Post = { id: `tmp-${Date.now()}`, title: title.trim(), author: author.trim(), likes: 0, body: body.trim() }
@@ -287,16 +357,18 @@ export default function CommunityPage() {
       window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
       return
     }
-    const draft: Announcement = { id: `tmp-${Date.now()}`, title: annTitle.trim(), body: annBody.trim(), author: "You" }
+    const draft: Announcement = { id: `tmp-${Date.now()}`, title: annTitle.trim(), body: annBody.trim(), author: "You", pinned: annPinned, 
+      // store tags as comma string in UI; not shown in card for now
+    }
     setAnnouncements((prev) => [{ ...draft }, ...prev])
-    setAnnOpen(false); setAnnTitle(""); setAnnBody("");
+    setAnnOpen(false); setAnnTitle(""); setAnnBody(""); setAnnPinned(false); setAnnTags("")
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       const res = await fetch(`${base}/api/community/announcements`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ title: draft.title, body: draft.body, author: draft.author }),
+        body: JSON.stringify({ title: draft.title, body: draft.body, author: draft.author, pinned: annPinned, tags: annTags.split(',').map(t=>t.trim()).filter(Boolean) }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -426,7 +498,14 @@ export default function CommunityPage() {
           <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
             Tips, resources, and stories from the builder community.
           </p>
-          {/* Post creation dialog (opened by the Posts section button) */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600">
+            <span className="px-2 py-1 rounded bg-slate-100">Posts: {totals.totalPosts}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Total Likes: {totals.totalLikes}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Announcements: {announcements.length}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Q&A: {questions.length}</span>
+          </div>
+        </div>
+  {/* Post creation dialog (opened by the Posts section button) */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent>
               <DialogHeader>
@@ -443,7 +522,6 @@ export default function CommunityPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
 
         {/* Tabs */}
         <div className="flex items-center justify-center gap-2 mb-8">
@@ -492,6 +570,10 @@ export default function CommunityPage() {
                   <div className="space-y-3">
                     <Input placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} />
                     <Textarea placeholder="What's new?" value={annBody} onChange={(e) => setAnnBody(e.target.value)} />
+                    <div className="flex items-center gap-3 text-sm text-slate-700">
+                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" checked={annPinned} onChange={(e)=>setAnnPinned(e.target.checked)} /> Pin this</label>
+                      <Input placeholder="Tags (comma separated)" value={annTags} onChange={(e)=>setAnnTags(e.target.value)} />
+                    </div>
                     <div className="text-sm text-slate-700">
                       <label className="block mb-1">Banner image (optional)</label>
                       <input type="file" accept="image/*" onChange={(e) => setAnnBanner(e.target.files?.[0] || null)} />
@@ -504,6 +586,7 @@ export default function CommunityPage() {
               </Dialog>
             ) : null}
           </div>
+          <div className="mb-2 text-xs text-slate-500">Auto-refreshing every ~30s</div>
           {annLoading ? (
             <div className="grid md:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -570,6 +653,16 @@ export default function CommunityPage() {
               </DialogContent>
             </Dialog>
           </div>
+          {/* Q&A filters */}
+          <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Input className="md:col-span-2" placeholder="Search questions (title/body/tags)" value={qaSearch} onChange={(e)=>setQaSearch(e.target.value)} />
+            <select className="border border-slate-300 rounded-md text-sm px-2 py-2 bg-white" value={qaTagFilter || ''} onChange={(e)=>setQaTagFilter(e.target.value || null)}>
+              <option value="">All tags</option>
+              {Array.from(new Set(questions.flatMap(q=>q.tags||[]))).slice(0,20).map(t=> (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
           {qaLoading ? (
             <div className="grid md:grid-cols-2 gap-4">
               {Array.from({ length: 2 }).map((_, i) => (
@@ -580,20 +673,48 @@ export default function CommunityPage() {
             <p className="text-slate-600 text-sm">No questions yet.</p>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {questions.map((q) => (
+              {questions
+                .filter(q => !qaTagFilter || (q.tags||[]).includes(qaTagFilter))
+                .filter(q => {
+                  const term = qaSearch.trim().toLowerCase();
+                  if (!term) return true;
+                  return q.title.toLowerCase().includes(term) || (q.body||'').toLowerCase().includes(term) || (q.tags||[]).some(t=>t.toLowerCase().includes(term));
+                })
+                .map((q) => (
                 <Card key={q.id} className="border border-slate-200 shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">{q.solved ? '✅' : '❔'} {q.title}</CardTitle>
-                    <CardDescription>by {q.author}{q.tags && q.tags.length ? ` • ${q.tags.slice(0,3).join(', ')}` : ''}</CardDescription>
+                    <CardDescription>by {q.author}{q.tags && q.tags.length ? ` • ${q.tags.slice(0,3).join(', ')}` : ''} {q.answers && q.answers.length ? ` • ${q.answers.length} answers` : ''} {typeof q.upvotes === 'number' ? ` • ${q.upvotes} upvotes` : ''}</CardDescription>
                   </CardHeader>
                   <CardContent>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs text-slate-500">{q.solved ? 'Marked as solved' : 'Open question'}</div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => upvoteQuestion(q.id)}>Upvote</Button>
+                        {(role === 'organizer' || role === 'admin') && (
+                          <Button size="sm" variant={q.solved ? 'secondary' : 'cta'} onClick={() => toggleSolved(q.id)}>
+                            {q.solved ? 'Unsolve' : 'Mark Solved'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     <p className="text-sm text-slate-700 mb-3">{preview(q.body)}</p>
                     {q.answers && q.answers.length > 0 && (
                       <div className="space-y-2 mb-3">
                         {(q.answers).map((a, idx) => (
                           <div key={(a.id || '') + idx} className="text-sm text-slate-700 border border-slate-200 rounded p-2 bg-white/60">
                             <div className="text-slate-500 text-xs mb-1">Answer by {displayAuthorName(a.author)}</div>
-                            <div>{a.body}</div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>{a.body}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500">{typeof a.upvotes==='number' ? a.upvotes : 0} upvotes</span>
+                                {a.id && (
+                                  <Button size="sm" variant="secondary" onClick={() => upvoteAnswer(q.id, a.id!)}>
+                                    Upvote
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -668,6 +789,7 @@ export default function CommunityPage() {
                   <MessageSquare className="w-4 h-4 mr-2" />New Post
                 </Button>
               </div>
+              <div className="mb-2 text-xs text-slate-500">Auto-refreshing every ~25s</div>
               {loading ? (
                 <div className="grid md:grid-cols-3 gap-5">
                   {Array.from({ length: 3 }).map((_, i) => (
