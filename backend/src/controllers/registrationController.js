@@ -1,6 +1,7 @@
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const Team = require('../models/Team');
+const DraftRegistration = require('../models/DraftRegistration');
 
 async function registerForEvent(req, res, next) {
   try {
@@ -74,4 +75,63 @@ async function listMyRegistrations(req, res, next) {
   }
 }
 
-module.exports = { registerForEvent, listMyRegistrations };
+// Save or update a draft registration (upsert by event + email)
+async function saveDraftRegistration(req, res, next) {
+  try {
+    const { id } = req.params; // event id
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    const payload = req.body || {};
+    const email = (payload.email || payload?.personalInfo?.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'An email is required to save draft' });
+
+    const doc = await DraftRegistration.findOneAndUpdate(
+      { event: id, email },
+      {
+        event: id,
+        eventName: event.title,
+        email,
+        registrationType: payload.registrationType || 'team',
+        personalInfo: payload.personalInfo || {},
+        teamInfo: payload.teamInfo || {},
+        preferences: payload.preferences || {},
+        agreements: payload.agreements || {},
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    res.json({ draft: doc });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get draft registration by event + email
+async function getDraftRegistration(req, res, next) {
+  try {
+    const { id } = req.params;
+    const email = (req.query.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'email query param is required' });
+    const draft = await DraftRegistration.findOne({ event: id, email }).lean();
+    if (!draft) return res.status(404).json({ message: 'No draft found' });
+    res.json({ draft });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Delete draft registration by event + email
+async function deleteDraftRegistration(req, res, next) {
+  try {
+    const { id } = req.params;
+    const email = (req.query.email || req.body?.email || '').toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'email is required' });
+    await DraftRegistration.deleteOne({ event: id, email });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { registerForEvent, listMyRegistrations, saveDraftRegistration, getDraftRegistration, deleteDraftRegistration };

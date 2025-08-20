@@ -163,6 +163,10 @@ export default function EventRegistrationPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [inviteMemberIndex, setInviteMemberIndex] = useState<number | null>(null)
   const [inviteEmail, setInviteEmail] = useState("")
+  // Draft state
+  const [draftLoading, setDraftLoading] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftMessage, setDraftMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -274,6 +278,62 @@ export default function EventRegistrationPage() {
     }
     run()
   }, [])
+
+  // Resolve an email to key draft ownership
+  const getDraftEmail = () => {
+    const piEmail = (registrationData.personalInfo?.email || "").trim()
+    const m0Email = (registrationData.teamInfo?.members?.[0]?.email || "").trim()
+    if (piEmail || m0Email) return (piEmail || m0Email)
+    // Fallback: previously saved leader email for this event
+    try {
+      if (typeof window !== "undefined" && id) {
+        const stored = localStorage.getItem(`draft_email_${id}`) || ""
+        return stored.trim()
+      }
+    } catch {}
+    return ""
+  }
+
+  // Load existing draft when event id and email are known
+  useEffect(() => {
+    const run = async () => {
+      if (!id) return
+      const email = getDraftEmail()
+      if (!email) return
+      try {
+        setDraftLoading(true)
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/events/${id}/registration/draft?email=${encodeURIComponent(email)}`, { cache: "no-store" })
+        if (res.status === 404) return // no draft
+        const data = await res.json().catch(() => ({} as any))
+        if (!res.ok) throw new Error(data?.message || "Failed to load draft")
+        const d = data?.draft
+        if (d) {
+          setRegistrationData((prev) => ({
+            ...prev,
+            registrationType: (d.registrationType as any) || prev.registrationType,
+            personalInfo: { ...prev.personalInfo, ...(d.personalInfo || {}) },
+            teamInfo: {
+              ...prev.teamInfo,
+              ...(d.teamInfo || {}),
+              members: Array.isArray(d?.teamInfo?.members) ? d.teamInfo.members : prev.teamInfo.members,
+            },
+            preferences: { ...prev.preferences, ...(d.preferences || {}) },
+            agreements: { ...prev.agreements, ...(d.agreements || {}) },
+          }))
+          setDraftMessage("Draft loaded")
+        }
+      } catch (e: any) {
+        // non-fatal
+        setDraftMessage(e?.message || "Failed to load draft")
+      } finally {
+        setDraftLoading(false)
+      }
+    }
+    run()
+    // Re-run when email becomes available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, registrationData.personalInfo.email, registrationData.teamInfo.members?.[0]?.email])
 
   // Helper to detect if a member is empty
   const isEmptyMember = (m: RegistrationData["teamInfo"]["members"][number]) => {
@@ -523,12 +583,63 @@ export default function EventRegistrationPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || "Registration failed")
+      // Best-effort: clear any saved draft for this event/email
+      try {
+        const email = getDraftEmail()
+        if (email) {
+          await fetch(`${base}/api/events/${id}/registration/draft`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          })
+        }
+        // Also clear stored draft email for this event
+        if (typeof window !== "undefined" && id) {
+          localStorage.removeItem(`draft_email_${id}`)
+        }
+      } catch {}
       // Success -> redirect back to the event page
       window.location.href = `/events/${id}`
     } catch (err: any) {
       setSubmitError(err?.message || "Registration failed")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    try {
+      setDraftMessage(null)
+      const email = getDraftEmail()
+      if (!email) {
+        setDraftMessage("Enter leader email (personal or Member 1) to save draft")
+        return
+      }
+      setDraftSaving(true)
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const payload = { ...registrationData, email }
+      const res = await fetch(`${base}/api/events/${id}/registration/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({} as any))
+      if (!res.ok) throw new Error(data?.message || "Failed to save draft")
+      // Persist the email so draft auto-loads on revisit
+      try {
+        if (typeof window !== "undefined" && id && email) {
+          localStorage.setItem(`draft_email_${id}`, email)
+        }
+      } catch {}
+      setDraftMessage("Draft saved")
+      // Navigate back to the event page after save
+      if (typeof window !== "undefined" && id) {
+        window.location.href = `/events/${id}`
+      }
+    } catch (e: any) {
+      setDraftMessage(e?.message || "Failed to save draft")
+    } finally {
+      setDraftSaving(false)
     }
   }
 
@@ -999,6 +1110,21 @@ export default function EventRegistrationPage() {
           
 
 
+          {/* Draft actions placed between Team Info and Agreements */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+            {(draftLoading || draftMessage) && (
+              <div className="text-xs text-muted-foreground">
+                {draftLoading ? "Loading draft..." : draftMessage}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={draftSaving || loading}>
+                {draftSaving ? "Saving..." : "Save as Draft"}
+              </Button>
+            </div>
+          </div>
+
+
           {/* Agreements */}
           <Card>
             <CardHeader>
@@ -1070,7 +1196,7 @@ export default function EventRegistrationPage() {
           </Card>
 
           {/* Submit - disabled if event not organizer-created or still loading/error */}
-          <div className="flex justify-end gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-4">
             <Button type="button" variant="outline" asChild>
               <Link href={`/events/${id}`}>Cancel</Link>
             </Button>
