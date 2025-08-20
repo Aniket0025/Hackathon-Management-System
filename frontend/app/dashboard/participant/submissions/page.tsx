@@ -176,7 +176,7 @@ export default function SubmissionsPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -184,7 +184,7 @@ export default function SubmissionsPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{event?.title || "Project Submission"}</h1>
             <div className="text-sm text-slate-600 mt-1">{eventId ? `Event ID: ${eventId}` : "Choose an event to submit to"}</div>
           </div>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="rounded-lg shadow-sm">
             <Link href="/my-apply">
               <ArrowLeft className="w-4 h-4 mr-2" /> Back to My Apply
             </Link>
@@ -195,7 +195,7 @@ export default function SubmissionsPage() {
           <div className="mb-4 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-sm">{error}</div>
         )}
 
-        <Card className="max-w-5xl mx-auto ring-1 ring-cyan-100/70 shadow-md bg-white/90 backdrop-blur-sm">
+        <Card className="max-w-5xl mx-auto rounded-xl border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm">
           <CardHeader className="border-b pb-4">
             <CardTitle className="flex items-center justify-between">
               <span>Project Submission</span>

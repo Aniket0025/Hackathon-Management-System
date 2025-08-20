@@ -6,6 +6,7 @@ import { AdvancedNavigation } from "@/components/advanced-navigation"
 import RouteTransition from "@/components/route-transition"
 import { SocketProvider } from "@/components/realtime/socket-provider"
 import "./globals.css"
+import { ClientToaster } from "@/components/ui/client-toaster"
 
 const geist = Geist({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ export default function RootLayout({
           <div className="pt-16 md:pt-20">
             <RouteTransition>{children}</RouteTransition>
           </div>
+          <ClientToaster />
         </SocketProvider>
       </body>
     </html>
