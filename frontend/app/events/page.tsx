@@ -269,7 +269,7 @@ export default function EventsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex gap-3">
-                  {role !== "organizer" && (
+                  {role !== "organizer" && role !== "judge" && (
                     registeredEventIds.has(ev._id) ? (
                       <Button size="sm" variant="outline" disabled>
                         Registered

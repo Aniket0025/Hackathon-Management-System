@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,101 +11,52 @@ import { Calendar, Trophy, Star, Clock, Eye, FileText, TrendingUp, Award, Zap, A
 import Link from "next/link"
 import EnhancedDashboardLayout from "@/components/enhanced-dashboard-layout"
 
-const mockJudgeData = {
-  id: 1,
-  name: "Dr. Sarah Wilson",
-  email: "sarah.wilson@university.edu",
-  avatar: "/abstract-geometric-shapes.png",
-  expertise: ["Machine Learning", "AI Ethics", "Data Science"],
-  rating: 4.9,
-  totalReviews: 156,
-  yearsExperience: 8,
-  assignedEvents: [
-    {
-      id: 1,
-      name: "AI Innovation Challenge 2024",
-      role: "Lead Judge",
-      totalSubmissions: 45,
-      evaluatedSubmissions: 32,
-      pendingSubmissions: 13,
-      deadline: "2024-03-16T23:59:00",
-      currentRound: "final",
-      averageScore: 7.8,
-      topCategory: "Machine Learning",
-    },
-    {
-      id: 2,
-      name: "Sustainable Tech Hackathon",
-      role: "Technical Judge",
-      totalSubmissions: 28,
-      evaluatedSubmissions: 28,
-      pendingSubmissions: 0,
-      deadline: "2024-02-23T23:59:00",
-      currentRound: "completed",
-      averageScore: 8.2,
-      topCategory: "Green Tech",
-    },
-  ],
-}
-
-const mockSubmissions = [
-  {
-    id: 1,
-    eventId: 1,
-    projectName: "EcoAI Assistant",
-    teamName: "AI Pioneers",
-    teamAvatar: "/ai-team.png",
-    track: "Machine Learning",
-    submittedAt: "2024-03-14T15:30:00",
-    status: "pending",
-    priority: "high",
-    estimatedTime: "45 min",
-    technologies: ["React", "Python", "TensorFlow"],
-    complexity: "Advanced",
-    teamSize: 4,
-  },
-  {
-    id: 2,
-    eventId: 1,
-    projectName: "Smart City Analytics",
-    teamName: "Urban Innovators",
-    teamAvatar: "/web-team-collaboration.png",
-    track: "Computer Vision",
-    submittedAt: "2024-03-14T12:15:00",
-    status: "evaluated",
-    priority: "medium",
-    estimatedTime: "30 min",
-    technologies: ["Python", "OpenCV", "FastAPI"],
-    score: 8.5,
-    complexity: "Intermediate",
-    teamSize: 3,
-  },
-  {
-    id: 3,
-    eventId: 1,
-    projectName: "Healthcare AI Chatbot",
-    teamName: "MedTech Solutions",
-    teamAvatar: "/diverse-professional-team.png",
-    track: "Natural Language Processing",
-    submittedAt: "2024-03-13T18:45:00",
-    status: "in-review",
-    priority: "high",
-    estimatedTime: "60 min",
-    technologies: ["Node.js", "OpenAI", "React"],
-    complexity: "Advanced",
-    teamSize: 5,
-  },
-]
-
-const mockRecentActivity = [
-  { id: 1, type: "evaluation", message: "Completed evaluation for EcoAI Assistant", time: "15 min ago" },
-  { id: 2, type: "submission", message: "New submission received: Smart City Analytics", time: "1 hour ago" },
-  { id: 3, type: "deadline", message: "Reminder: 13 submissions pending review", time: "2 hours ago" },
-  { id: 4, type: "achievement", message: "Reached 150+ total evaluations milestone", time: "1 day ago" },
-]
-
 export default function JudgeDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
+  const [assignedEvents, setAssignedEvents] = useState<Array<{ id: string | number; name: string; role?: string; totalSubmissions?: number; evaluatedSubmissions?: number; pendingSubmissions?: number; deadline?: string; currentRound?: string; averageScore?: number; topCategory?: string }>>([])
+  const [user, setUser] = useState<{ name?: string; email?: string; avatar?: string } | null>(null)
+  const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  useEffect(() => {
+    // Load profile (auth user)
+    const loadMe = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) return
+        const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const data = await res.json().catch(() => ({}))
+        const u = data?.user || data
+        setUser({ name: u?.name, email: u?.email, avatar: (u as any)?.avatar })
+      } catch {}
+    }
+    const loadAssigned = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) return
+        const res = await fetch(`${base}/api/judges/my-events`, { headers: { Authorization: `Bearer ${token}` } })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) return
+        const events = Array.isArray(json?.events) ? json.events : []
+        // Map to UI shape with safe defaults
+        const mapped = events.map((e: any) => ({
+          id: e?._id || e?.id,
+          name: e?.title || e?.name || "Event",
+          role: "Judge",
+          totalSubmissions: e?.totalSubmissions ?? 0,
+          evaluatedSubmissions: e?.evaluatedSubmissions ?? 0,
+          pendingSubmissions: e?.pendingSubmissions ?? Math.max(0, (e?.totalSubmissions ?? 0) - (e?.evaluatedSubmissions ?? 0)),
+          deadline: e?.endDate,
+          currentRound: e?.status || "ongoing",
+          averageScore: e?.averageScore ?? 0,
+          topCategory: e?.topCategory || "",
+        }))
+        setAssignedEvents(mapped)
+      } catch {}
+    }
+    loadMe()
+    loadAssigned()
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,14 +84,13 @@ export default function JudgeDashboard() {
     }
   }
 
-  const filteredSubmissions = mockSubmissions.filter((submission) => {
-    if (activeTab === "overview") return true
-    return submission.status === activeTab
-  })
+  // Until real submissions API exists for judge, show empty list (no mock)
+  const filteredSubmissions: any[] = []
 
-  const totalSubmissions = mockJudgeData.assignedEvents.reduce((sum, event) => sum + event.totalSubmissions, 0)
-  const evaluatedSubmissions = mockJudgeData.assignedEvents.reduce((sum, event) => sum + event.evaluatedSubmissions, 0)
-  const pendingSubmissions = mockJudgeData.assignedEvents.reduce((sum, event) => sum + event.pendingSubmissions, 0)
+  const eventsForUI = assignedEvents
+  const totalSubmissions = eventsForUI.reduce((sum, event) => sum + (event.totalSubmissions || 0), 0)
+  const evaluatedSubmissions = eventsForUI.reduce((sum, event) => sum + (event.evaluatedSubmissions || 0), 0)
+  const pendingSubmissions = eventsForUI.reduce((sum, event) => sum + (event.pendingSubmissions || 0), 0)
 
   return (
     <EnhancedDashboardLayout userRole="judge">
@@ -148,22 +98,19 @@ export default function JudgeDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 ring-4 ring-cyan-100">
-              <AvatarImage src={mockJudgeData.avatar || "/placeholder.svg"} alt={mockJudgeData.name} />
-              <AvatarFallback>SW</AvatarFallback>
+              <AvatarImage src={user?.avatar || "/placeholder.svg"} alt={user?.name || "Judge"} />
+              <AvatarFallback>{(user?.name || "J").charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                Welcome, {mockJudgeData.name.split(" ")[1]}!
+                Welcome{user?.name ? `, ${user.name.split(" ")[0]}!` : "!"}
               </h1>
               <p className="text-slate-600 mt-1">Review and evaluate hackathon submissions</p>
-              <div className="flex items-center gap-3 mt-2">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Star className="w-3 h-3" />
-                  {mockJudgeData.rating} Rating
-                </Badge>
-                <Badge variant="outline">{mockJudgeData.totalReviews} Reviews</Badge>
-                <Badge variant="outline">{mockJudgeData.yearsExperience}+ Years</Badge>
-              </div>
+              {user?.email && (
+                <div className="flex items-center gap-3 mt-2">
+                  <Badge variant="outline">{user.email}</Badge>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -216,9 +163,7 @@ export default function JudgeDashboard() {
               <Calendar className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {mockJudgeData.assignedEvents.filter((e) => e.currentRound !== "completed").length}
-              </div>
+              <div className="text-2xl font-bold text-purple-600">{eventsForUI.filter((e) => e.currentRound !== "completed").length}</div>
               <p className="text-xs text-slate-600">Currently judging</p>
             </CardContent>
           </Card>
@@ -233,7 +178,9 @@ export default function JudgeDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockJudgeData.assignedEvents.map((event) => (
+                  {eventsForUI.length === 0 ? (
+                    <div className="text-sm text-slate-500">No assigned events yet.</div>
+                  ) : eventsForUI.map((event) => (
                     <div key={event.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="space-y-3 flex-1">
@@ -277,7 +224,7 @@ export default function JudgeDashboard() {
                               <div>
                                 <div className="font-semibold">
                                   {event.currentRound !== "completed"
-                                    ? new Date(event.deadline).toLocaleDateString()
+                                    ? (event.deadline ? new Date(event.deadline).toLocaleDateString() : "-")
                                     : "Complete"}
                                 </div>
                                 <div className="text-slate-500">Deadline</div>
@@ -289,14 +236,19 @@ export default function JudgeDashboard() {
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-slate-600">Evaluation Progress</span>
-                                <span className="font-medium">
-                                  {Math.round((event.evaluatedSubmissions / event.totalSubmissions) * 100)}%
-                                </span>
+                                {(() => {
+                                  const total = event.totalSubmissions ?? 0
+                                  const evaluated = event.evaluatedSubmissions ?? 0
+                                  const pct = total > 0 ? Math.round((evaluated / total) * 100) : 0
+                                  return <span className="font-medium">{pct}%</span>
+                                })()}
                               </div>
-                              <Progress
-                                value={(event.evaluatedSubmissions / event.totalSubmissions) * 100}
-                                className="h-2"
-                              />
+                              {(() => {
+                                const total = event.totalSubmissions ?? 0
+                                const evaluated = event.evaluatedSubmissions ?? 0
+                                const value = total > 0 ? (evaluated / total) * 100 : 0
+                                return <Progress value={value} className="h-2" />
+                              })()}
                             </div>
                           )}
                         </div>
@@ -333,15 +285,7 @@ export default function JudgeDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockRecentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3">
-                      <div className="h-2 w-2 bg-cyan-500 rounded-full mt-2"></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-900">{activity.message}</p>
-                        <p className="text-xs text-slate-500">{activity.time}</p>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="text-sm text-slate-500">No recent activity to show.</div>
                 </div>
               </CardContent>
             </Card>
@@ -355,24 +299,7 @@ export default function JudgeDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium text-slate-900 mb-2">Expertise Areas</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {mockJudgeData.expertise.map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Judge Rating</span>
-                      <span className="font-medium">{mockJudgeData.rating}/5.0</span>
-                    </div>
-                    <Progress value={mockJudgeData.rating * 20} className="h-2" />
-                  </div>
+                  <div className="text-sm text-slate-500">Profile details will appear here.</div>
                 </div>
               </CardContent>
             </Card>
@@ -406,88 +333,7 @@ export default function JudgeDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredSubmissions.map((submission) => (
-                    <div key={submission.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="space-y-3 flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <h4 className="font-semibold text-lg">{submission.projectName}</h4>
-                            <Badge className={getStatusColor(submission.status)} variant="outline">
-                              {submission.status}
-                            </Badge>
-                            <Badge className={getPriorityColor(submission.priority)} variant="outline">
-                              {submission.priority}
-                            </Badge>
-                            <Badge variant="secondary">{submission.track}</Badge>
-                          </div>
-
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={submission.teamAvatar || "/placeholder.svg"} />
-                              <AvatarFallback>{submission.teamName[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <div className="font-medium">{submission.teamName}</div>
-                                <div className="text-slate-500">{submission.teamSize} members</div>
-                              </div>
-                              <div>
-                                <div className="font-medium">{submission.complexity}</div>
-                                <div className="text-slate-500">Complexity</div>
-                              </div>
-                              <div>
-                                <div className="font-medium">{submission.estimatedTime}</div>
-                                <div className="text-slate-500">Est. time</div>
-                              </div>
-                              <div>
-                                <div className="font-medium">
-                                  {new Date(submission.submittedAt).toLocaleDateString()}
-                                </div>
-                                <div className="text-slate-500">Submitted</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1">
-                            {submission.technologies.slice(0, 3).map((tech) => (
-                              <Badge key={tech} variant="outline" className="text-xs">
-                                {tech}
-                              </Badge>
-                            ))}
-                            {submission.technologies.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{submission.technologies.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-
-                          {submission.score && (
-                            <div className="flex items-center gap-2">
-                              <Star className="w-4 h-4 text-amber-500 fill-current" />
-                              <span className="text-sm font-medium">{submission.score}/10</span>
-                              <span className="text-xs text-slate-500">Your Score</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/judge/submissions/${submission.id}`}>
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Link>
-                          </Button>
-                          {submission.status === "pending" && (
-                            <Button size="sm" asChild>
-                              <Link href={`/dashboard/judge/submissions/${submission.id}/evaluate`}>
-                                <Star className="w-4 h-4 mr-1" />
-                                Evaluate
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="text-sm text-slate-500">No submissions to display.</div>
                 </div>
               </CardContent>
             </Card>

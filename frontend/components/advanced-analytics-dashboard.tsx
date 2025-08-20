@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Users, Trophy, Brain, Target, Award, BarChart3, PieChart, Activity, Globe } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { TrendingUp, Users, Trophy, Award, BarChart3, PieChart, Activity } from "lucide-react"
 import { ResponsiveContainer, PieChart as RPieChart, Pie, Cell, Tooltip } from "recharts"
 
 interface ActivityItem {
@@ -38,6 +39,8 @@ export default function AdvancedAnalyticsDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [skillDist, setSkillDist] = useState<{ name: string; key: string; count: number }[]>([])
+  const [lastUpdated, setLastUpdated] = useState<string>("")
+  const [changes, setChanges] = useState<{ participants: number; submissions: number }>({ participants: 0, submissions: 0 })
 
   // Fetch real-time analytics data
   const fetchAnalyticsData = async () => {
@@ -61,6 +64,11 @@ export default function AdvancedAnalyticsDashboard() {
             engagement: data.engagementRate,
             satisfaction: 4.8 + (data.successRate / 100) * 0.2, // Dynamic satisfaction based on success rate
           })
+          setChanges({
+            participants: Number(data.changes?.participants ?? 0),
+            submissions: Number(data.changes?.submissions ?? 0),
+          })
+          setLastUpdated(data.lastUpdated || new Date().toISOString())
         }
       }
       
@@ -95,32 +103,25 @@ export default function AdvancedAnalyticsDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  const aiInsights = [
-    {
-      icon: Brain,
-      title: "Optimal Team Size Detected",
-      description: "AI recommends 4-person teams for 23% higher success rate",
-      confidence: 94,
-      gradient: "from-purple-500 to-pink-500",
-    },
-    {
-      icon: Target,
-      title: "Peak Engagement Hours",
-      description: "Participants most active between 2-4 PM and 8-10 PM",
-      confidence: 87,
-      gradient: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: Award,
-      title: "Success Pattern Identified",
-      description: "Projects with early prototypes have 67% higher win rate",
-      confidence: 91,
-      gradient: "from-green-500 to-emerald-500",
-    },
-  ]
+  // Removed static AI insights to ensure only real-time backend data is displayed
 
   return (
     <div className="space-y-8">
+      {/* Live header with refresh */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-sm text-slate-600">Live Data</span>
+          {lastUpdated && (
+            <span className="text-xs text-slate-500">Last updated: {new Date(lastUpdated).toLocaleTimeString()}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={fetchAnalyticsData} disabled={isLoading}>
+            {isLoading ? 'Refreshing…' : 'Refresh'}
+          </Button>
+        </div>
+      </div>
       {/* Real-Time Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
@@ -128,7 +129,7 @@ export default function AdvancedAnalyticsDashboard() {
             <div className="flex items-center justify-between">
               <Users className="w-8 h-8 text-blue-600" />
               <Badge variant="secondary" className="hidden sm:inline-flex bg-blue-100 text-blue-700">
-                Live
+                {isLoading ? 'Loading' : 'Live'}
               </Badge>
             </div>
           </CardHeader>
@@ -143,7 +144,7 @@ export default function AdvancedAnalyticsDashboard() {
             <p className="text-blue-600 text-sm">Active Participants</p>
             <div className="flex items-center mt-2">
               <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 text-sm">+12% from yesterday</span>
+              <span className="text-green-600 text-sm">{changes.participants >= 0 ? '+' : ''}{changes.participants} from last period</span>
             </div>
           </CardContent>
         </Card>
@@ -153,7 +154,7 @@ export default function AdvancedAnalyticsDashboard() {
             <div className="flex items-center justify-between">
               <Trophy className="w-8 h-8 text-purple-600" />
               <Badge variant="secondary" className="hidden sm:inline-flex bg-purple-100 text-purple-700">
-                Updated
+                {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : '—'}
               </Badge>
             </div>
           </CardHeader>
@@ -168,7 +169,7 @@ export default function AdvancedAnalyticsDashboard() {
             <p className="text-purple-600 text-sm">Project Submissions</p>
             <div className="flex items-center mt-2">
               <Activity className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 text-sm">+5 in last hour</span>
+              <span className="text-green-600 text-sm">{changes.submissions >= 0 ? '+' : ''}{changes.submissions} in last period</span>
             </div>
           </CardContent>
         </Card>
@@ -193,7 +194,14 @@ export default function AdvancedAnalyticsDashboard() {
             <p className="text-green-600 text-sm">Engagement Rate</p>
             <div className="flex items-center mt-2">
               <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 text-sm">Above average</span>
+              <span className="text-green-600 text-sm">
+                {(() => {
+                  const e = realTimeData.engagement
+                  if (e >= 75) return 'High engagement'
+                  if (e >= 40) return 'Moderate engagement'
+                  return 'Low engagement'
+                })()}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -218,50 +226,21 @@ export default function AdvancedAnalyticsDashboard() {
             <p className="text-amber-600 text-sm">Satisfaction Score</p>
             <div className="flex items-center mt-2">
               <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 text-sm">Excellent rating</span>
+              <span className="text-green-600 text-sm">
+                {(() => {
+                  const s = realTimeData.satisfaction
+                  if (s >= 4.5) return 'Excellent'
+                  if (s >= 4.0) return 'Great'
+                  if (s >= 3.5) return 'Good'
+                  return 'Needs improvement'
+                })()}
+              </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* AI-Powered Insights */}
-      <Card className="bg-gradient-to-br from-slate-50 to-cyan-50">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-              <Brain className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-xl">AI-Powered Insights</CardTitle>
-              <CardDescription>Machine learning analysis of your event performance</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-6">
-            {aiInsights.map((insight, index) => (
-              <Card key={index} className="border-0 bg-white shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 bg-gradient-to-r ${insight.gradient} rounded-lg flex items-center justify-center`}
-                    >
-                      <insight.icon className="w-4 h-4 text-white" />
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {insight.confidence}% confidence
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <h4 className="font-semibold text-slate-900 mb-2">{insight.title}</h4>
-                  <p className="text-sm text-slate-600">{insight.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* AI insights removed to avoid any non-real-time placeholders */}
 
       {/* Advanced Visualization Placeholder */}
       <div className="grid md:grid-cols-2 gap-6">
