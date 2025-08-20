@@ -45,6 +45,7 @@ export default function EventDetailsPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
   const router = useRouter()
+  const isValidId = typeof id === 'string' && id !== 'undefined' && id.trim().length > 0
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,7 +68,7 @@ export default function EventDetailsPage() {
   const [notifyFeedback, setNotifyFeedback] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) return
+    if (!isValidId) return
     const ctrl = new AbortController()
     const load = async () => {
       try {
@@ -84,7 +85,7 @@ export default function EventDetailsPage() {
     }
     load()
     return () => ctrl.abort()
-  }, [id])
+  }, [id, isValidId])
 
   // Load current user role (to hide Register for organizers)
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function EventDetailsPage() {
 
   // Load top teams for this event
   useEffect(() => {
-    if (!id) return
+    if (!isValidId) return
     const ctrl = new AbortController()
     const loadTeams = async () => {
       try {
@@ -145,7 +146,7 @@ export default function EventDetailsPage() {
     }
     loadTeams()
     return () => ctrl.abort()
-  }, [id])
+  }, [id, isValidId])
 
   // Send notification to participants (organizer only)
   const handleNotifySend = async () => {
@@ -415,7 +416,7 @@ export default function EventDetailsPage() {
             )}
             {/* Actions at the very end */}
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
-              {role !== 'organizer' && role !== 'judge' ? (
+              {role !== 'organizer' && role !== 'judge' && (
                 isRegisteredForThis ? (
                   <Button variant="outline" disabled>Registered</Button>
                 ) : (
@@ -438,9 +439,10 @@ export default function EventDetailsPage() {
                     Register
                   </Button>
                 )
-              ) : (
-                <div className="flex gap-3">
+              )}
 
+              {role === 'judge' && (
+                <div className="flex gap-3">
                   <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
                     <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
                   </Button>
@@ -450,7 +452,20 @@ export default function EventDetailsPage() {
                   >
                     Notify Participants
                   </Button>
+                </div>
+              )}
 
+              {role === 'organizer' && (
+                <div className="flex gap-3">
+                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
+                    <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setNotifyFeedback(null); setNotifyOpen(true) }}
+                  >
+                    Notify Participants
+                  </Button>
                   <Button asChild variant="outline">
                     <Link prefetch href={`/events/${event._id}/edit`}>Edit</Link>
                   </Button>

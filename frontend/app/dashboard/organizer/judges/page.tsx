@@ -6,6 +6,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Badge } from "@/components/ui/badge"
 import { Users, Mail, Lock, Calendar } from "lucide-react"
 
@@ -28,7 +29,7 @@ export default function OrganizerAssignJudgesPage() {
   const [form, setForm] = useState({ email: "", password: "", name: "", eventId: "" })
   const [events, setEvents] = useState<Array<{ id: string; title: string }>>([])
   const [loading, setLoading] = useState(false)
-  const [assigned, setAssigned] = useState<Array<{ id: string; name: string; email: string; eventTitle: string }>>([])
+  const [assigned, setAssigned] = useState<Array<{ id: string; judgeId: string | null; name: string; email: string; eventTitle: string }>>([])
 
   const isOrganizer = role === "organizer"
 
@@ -43,7 +44,8 @@ export default function OrganizerAssignJudgesPage() {
       if (!res.ok) return
       const data = await res.json()
       const items = (data.assignments || []).map((a: any) => ({
-        id: a.id,
+        id: a.id, // assignment id (kept if needed)
+        judgeId: a.judge?.id || a.judge?._id || null,
         name: a.judge?.name || a.judge?.email?.split("@")[0] || "Judge",
         email: a.judge?.email || "",
         eventTitle: a.event?.title || "Unassigned",
@@ -130,7 +132,7 @@ export default function OrganizerAssignJudgesPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Full Name (optional)</label>
+                <label className="block text-sm text-slate-600 mb-1">Full Name</label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
               </div>
               <div>
@@ -144,11 +146,11 @@ export default function OrganizerAssignJudgesPage() {
                 <label className="block text-sm text-slate-600 mb-1">Temporary Password</label>
                 <div className="relative">
                   <Lock className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input type="password" required minLength={6} className="pl-9" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
+                  <PasswordInput required className="pl-9" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Assign to Event (optional)</label>
+                <label className="block text-sm text-slate-600 mb-1">Assign to Event</label>
                 <div className="relative">
                   <Calendar className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <select
@@ -180,7 +182,14 @@ export default function OrganizerAssignJudgesPage() {
           <CardContent>
             <div className="space-y-3">
               {assigned.map((j) => (
-                <div key={j.id} className="p-3 border rounded-lg flex items-center justify-between">
+                <div
+                  key={j.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { if (j.judgeId) router.push(`/dashboard/organizer/judges/${j.judgeId}`) }}
+                  onKeyDown={(e) => { if (j.judgeId && (e.key === 'Enter' || e.key === ' ')) router.push(`/dashboard/organizer/judges/${j.judgeId}`) }}
+                  className={`p-3 border rounded-lg flex items-center justify-between ${j.judgeId ? 'hover:bg-slate-50 cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+                >
                   <div>
                     <div className="font-medium">{j.name}</div>
                     <div className="text-sm text-slate-600">{j.email}</div>
