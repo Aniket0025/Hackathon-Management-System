@@ -1,6 +1,7 @@
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const Team = require('../models/Team');
+const User = require('../models/User');
 const DraftRegistration = require('../models/DraftRegistration');
 
 async function registerForEvent(req, res, next) {
@@ -26,6 +27,16 @@ async function registerForEvent(req, res, next) {
     }
     if (!a.termsAccepted || !a.codeOfConductAccepted || !a.dataProcessingAccepted) {
       return res.status(400).json({ message: 'All agreements must be accepted' });
+    }
+
+    // Block judges from registering
+    if (req.user?.role === 'judge') {
+      return res.status(403).json({ message: 'Judges are not allowed to register for events' });
+    }
+    // Also block if the provided email belongs to a judge account
+    const existingUser = await User.findOne({ email: (p.email || '').toLowerCase() }).select('role');
+    if (existingUser && existingUser.role === 'judge') {
+      return res.status(403).json({ message: 'This email belongs to a judge account which cannot register for events' });
     }
 
     if (payload.registrationType === 'team') {

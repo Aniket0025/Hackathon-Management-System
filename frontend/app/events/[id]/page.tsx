@@ -415,7 +415,7 @@ export default function EventDetailsPage() {
             )}
             {/* Actions at the very end */}
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
-              {role !== 'organizer' ? (
+              {role !== 'organizer' && role !== 'judge' ? (
                 isRegisteredForThis ? (
                   <Button variant="outline" disabled>Registered</Button>
                 ) : (
