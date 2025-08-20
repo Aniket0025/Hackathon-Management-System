@@ -330,6 +330,12 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link href="/invites" className="flex items-center">
+                        <Bell className="w-4 h-4 mr-2" />
+                        Invites
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/my-apply" className="flex items-center">
                         <Users className="w-4 h-4 mr-2" />
                         My Apply
@@ -408,6 +414,11 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                   <Link href="/profile" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="outline" className="w-full min-h-[44px]">
                       <User className="w-4 h-4 mr-2" /> Profile
+                    </Button>
+                  </Link>
+                  <Link href="/invites" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full min-h-[44px]">
+                      <Bell className="w-4 h-4 mr-2" /> Invites
                     </Button>
                   </Link>
                   <Link href="/my-apply" className="flex-1" onClick={() => setIsMenuOpen(false)}>

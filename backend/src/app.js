@@ -15,6 +15,7 @@ const submissionRoutes = require('./routes/submissions');
 const mailRoutes = require('./routes/mail');
 const judgesRoutes = require('./routes/judges');
 const notificationsRoutes = require('./routes/notifications');
+const invitesRoutes = require('./routes/invites');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -85,6 +86,7 @@ app.use('/api/community', communityRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/judges', judgesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/invites', invitesRoutes);
 
 // 404 and error handler
 app.use(notFound);

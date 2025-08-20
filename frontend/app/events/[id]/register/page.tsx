@@ -397,51 +397,29 @@ export default function EventRegistrationPage() {
     if (!isValid || inviteMemberIndex == null) {
       return
     }
-    // Update member email locally; hook for API invite can be added here
-    updateMember(inviteMemberIndex, "email", email)
-    setInviteDialogOpen(false)
-  }
-
-  // Copy Personal Information into a team member (used for Member 1 shortcut)
-  const copyPersonalToMember = (memberIndex: number) => {
-    setRegistrationData((prev) => {
-      const p = prev.personalInfo
-      const next = [...prev.teamInfo.members]
-      if (!next[memberIndex]) {
-        next[memberIndex] = {
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          gender: "",
-          instituteName: "",
-          type: "",
-          domain: "",
-          bio: "",
-          graduatingYear: "",
-          courseDuration: "",
-          differentlyAbled: "",
-          location: "",
-        }
-      }
-      next[memberIndex] = {
-        ...next[memberIndex],
-        firstName: p.firstName || "",
-        lastName: p.lastName || "",
-        email: p.email || "",
-        phone: p.phone || "",
-        gender: p.gender || "",
-        instituteName: p.instituteName || "",
-        type: p.type || "",
-        domain: p.domain || "",
-        bio: p.bio || "",
-        graduatingYear: p.graduatingYear || "",
-        courseDuration: p.courseDuration || "",
-        differentlyAbled: p.differentlyAbled || "",
-        location: p.location || "",
-      }
-      return { ...prev, teamInfo: { ...prev.teamInfo, members: next } }
-    })
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      const res = await fetch(`${base}/api/invites`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          recipientEmail: email,
+          eventId: id,
+          teamName: registrationData.teamInfo.teamName || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({} as any))
+      if (!res.ok) throw new Error(data?.message || "Failed to send invite")
+      updateMember(inviteMemberIndex, "email", email)
+      setInviteDialogOpen(false)
+    } catch (e: any) {
+      console.error("invite error", e)
+      alert(e?.message || "Failed to send invite")
+    }
   }
 
   // Quick action: if no members, add Member 1 as the registrant
@@ -956,6 +934,22 @@ export default function EventRegistrationPage() {
                               </div>
                             </div>
                             {/* Removed 'Copy from Personal Information' action in modal as requested */}
+                            {/* Dialog footer actions */}
+                            <div className="flex justify-end gap-2 pt-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setEditingMemberIndex(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={() => setEditingMemberIndex(null)}
+                              >
+                                Save changes
+                              </Button>
+                            </div>
                           </div>
                         )})()}
                       </>
