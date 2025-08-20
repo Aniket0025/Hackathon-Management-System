@@ -33,6 +33,7 @@ interface AnalyticsData {
 }
 
 export function InteractiveStatsDashboard({ eventId }: { eventId?: string }) {
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
   const [stats, setStats] = useState<StatCard[]>([
     { title: "Active Events", value: 0, change: 0, icon: Activity, color: "from-blue-500 to-cyan-500" },
     { title: "Total Participants", value: 0, change: 0, icon: Users, color: "from-purple-500 to-pink-500" },
@@ -54,7 +55,7 @@ export function InteractiveStatsDashboard({ eventId }: { eventId?: string }) {
       setIsLoading(true)
       setError(null)
       
-      const dashUrl = new URL('http://localhost:4000/api/analytics/dashboard')
+      const dashUrl = new URL(`${apiBase}/api/analytics/dashboard`)
       if (eventId) dashUrl.searchParams.set('eventId', eventId)
       const response = await fetch(dashUrl.toString())
       if (!response.ok) {
@@ -113,7 +114,7 @@ export function InteractiveStatsDashboard({ eventId }: { eventId?: string }) {
   const fetchTrendsData = async (timeframe: "24h" | "7d" | "30d") => {
     try {
       setTrendsLoading(true)
-      const url = new URL('http://localhost:4000/api/analytics/trends')
+      const url = new URL(`${apiBase}/api/analytics/trends`)
       url.searchParams.set('timeframe', timeframe)
       if (eventId) url.searchParams.set('eventId', eventId)
       const res = await fetch(url.toString())
