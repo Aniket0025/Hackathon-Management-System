@@ -144,26 +144,61 @@ export default function TeamDetailsPage() {
                 </section>
 
                 <section className="border rounded-lg p-4 bg-white/70">
-                  <h3 className="text-lg font-semibold mb-2">Submissions</h3>
+                  <h3 className="text-lg font-semibold mb-3">Submissions</h3>
                   {subs.length === 0 ? (
                     <div className="text-slate-700">No submissions yet.</div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {subs.map(s => (
-                        <div key={s._id} className="border rounded p-3 bg-white/80">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium">{s.title}</div>
-                            <div className="text-xs text-slate-600">{new Date(s.updatedAt || s.createdAt).toLocaleString()}</div>
+                        <div key={s._id} className="border rounded-md p-4 bg-white">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="text-sm text-slate-600">Last updated: {new Date(s.updatedAt || s.createdAt).toLocaleString()}</div>
+                            <div className="text-xs px-2 py-0.5 rounded-full border border-slate-200 text-slate-700 bg-slate-50">{s.status}</div>
                           </div>
-                          {s.description && (
-                            <div className="mt-1 text-sm text-slate-700 line-clamp-3">{s.description}</div>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                            {s.repoUrl && <a className="text-cyan-700 underline" href={s.repoUrl} target="_blank" rel="noreferrer">Repo</a>}
-                            {s.docsUrl && <a className="text-cyan-700 underline" href={s.docsUrl} target="_blank" rel="noreferrer">Docs</a>}
-                            {s.videoUrl && <a className="text-cyan-700 underline" href={s.videoUrl} target="_blank" rel="noreferrer">Video</a>}
-                            <span className="text-slate-700">Status: {s.status}</span>
-                            {typeof s.score === 'number' && <span className="text-slate-700">Score: {s.score}</span>}
+
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-sm text-slate-700 mb-1">Title</div>
+                              <div className="text-base font-medium text-slate-900">{s.title || '—'}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm text-slate-700 mb-1">Description</div>
+                              <div className="text-sm text-slate-800 whitespace-pre-wrap">{s.description || '—'}</div>
+                            </div>
+
+                            <div className="grid sm:grid-cols-3 gap-4">
+                              <div>
+                                <div className="text-sm text-slate-700 mb-1">GitHub Repo</div>
+                                {s.repoUrl ? (
+                                  <a className="text-cyan-700 underline break-all" href={s.repoUrl} target="_blank" rel="noreferrer">{s.repoUrl}</a>
+                                ) : (
+                                  <div className="text-sm text-slate-500">—</div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-sm text-slate-700 mb-1">Docs</div>
+                                {s.docsUrl ? (
+                                  <a className="text-cyan-700 underline break-all" href={s.docsUrl} target="_blank" rel="noreferrer">{s.docsUrl}</a>
+                                ) : (
+                                  <div className="text-sm text-slate-500">—</div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-sm text-slate-700 mb-1">Video</div>
+                                {s.videoUrl ? (
+                                  <a className="text-cyan-700 underline break-all" href={s.videoUrl} target="_blank" rel="noreferrer">{s.videoUrl}</a>
+                                ) : (
+                                  <div className="text-sm text-slate-500">—</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+                              {typeof s.score === 'number' && (
+                                <span>Score: <span className="font-medium">{s.score}</span></span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

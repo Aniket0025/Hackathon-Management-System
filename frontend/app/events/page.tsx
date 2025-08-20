@@ -70,13 +70,29 @@ export default function EventsPage() {
     loadMe()
   }, [])
 
-  // Load events based on selected view
+  // Load events based on role and selected view
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setLoading(true)
         setError(null)
         const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+        // Judges: only see events assigned to them
+        if (role === 'judge') {
+          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+          if (!token) { setEvents([]); return }
+          const res = await fetch(`${base}/api/judges/my-events`, { headers: { Authorization: `Bearer ${token}` } })
+          if (!res.ok) throw new Error(`Failed to load assigned events (${res.status})`)
+          const json = await res.json().catch(() => ({}))
+          const evs = Array.isArray(json?.events) ? json.events : []
+          // Ensure we have a consistent _id for linking/keys
+          const normalized = evs.map((e: any) => ({ ...e, _id: e?._id || e?.id }))
+          setEvents(normalized)
+          return
+        }
+
+        // Default/public and organizer views
         const query = view === 'mine' && userId ? `?organizer=${encodeURIComponent(userId)}` : ''
         const evRes = await fetch(`${base}/api/events${query}`)
         if (!evRes.ok) throw new Error(`Failed to load events (${evRes.status})`)
@@ -91,7 +107,7 @@ export default function EventsPage() {
     if (!initialized) return // wait for user info determination
     if (view === 'mine' && !userId) return // wait for userId when organizer view
     loadEvents()
-  }, [view, userId, initialized])
+  }, [view, userId, initialized, role])
 
   // Load participant registrations to determine which events are already registered
   useEffect(() => {
@@ -174,9 +190,15 @@ export default function EventsPage() {
             Discover Events
           </Badge>
           <h1 className="text-3xl md:text-5xl font-bold text-slate-900">Browse Events</h1>
-          <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
-            All events are visible to participants and judges. Organizers can also create new events.
-          </p>
+          {role === 'judge' ? (
+            <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
+              Only events assigned to you are shown.
+            </p>
+          ) : (
+            <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
+              All events are visible to participants. Organizers can also create new events.
+            </p>
+          )}
           {role === "organizer" && (
             <div className="mt-6 flex flex-col items-center gap-3">
               <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">

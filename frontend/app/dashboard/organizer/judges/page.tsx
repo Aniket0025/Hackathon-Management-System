@@ -6,6 +6,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Badge } from "@/components/ui/badge"
 import { Users, Mail, Lock, Calendar } from "lucide-react"
 
@@ -131,7 +132,7 @@ export default function OrganizerAssignJudgesPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Full Name (optional)</label>
+                <label className="block text-sm text-slate-600 mb-1">Full Name</label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
               </div>
               <div>
@@ -145,11 +146,11 @@ export default function OrganizerAssignJudgesPage() {
                 <label className="block text-sm text-slate-600 mb-1">Temporary Password</label>
                 <div className="relative">
                   <Lock className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input type="password" required minLength={6} className="pl-9" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
+                  <PasswordInput required className="pl-9" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Assign to Event (optional)</label>
+                <label className="block text-sm text-slate-600 mb-1">Assign to Event</label>
                 <div className="relative">
                   <Calendar className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <select

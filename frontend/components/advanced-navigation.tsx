@@ -367,7 +367,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                         Profile
                       </Link>
                     </DropdownMenuItem>
-                    {role !== 'organizer' && (
+                    {role === 'participant' && (
                       <DropdownMenuItem asChild>
                         <Link href="/invites" className="flex items-center">
                           <Bell className="w-4 h-4 mr-2" />
@@ -375,7 +375,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                         </Link>
                       </DropdownMenuItem>
                     )}
-                    {role !== 'organizer' && (
+                    {role === 'participant' && (
                       <DropdownMenuItem asChild>
                         <Link href="/my-apply" className="flex items-center">
                           <Users className="w-4 h-4 mr-2" />
@@ -458,14 +458,14 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                       <User className="w-4 h-4 mr-2" /> Profile
                     </Button>
                   </Link>
-                  {role !== 'organizer' && (
+                  {role === 'participant' && (
                     <Link href="/invites" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="outline" className="w-full min-h-[44px]">
                         <Bell className="w-4 h-4 mr-2" /> Invites
                       </Button>
                     </Link>
                   )}
-                  {role !== 'organizer' && (
+                  {role === 'participant' && (
                     <Link href="/my-apply" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="outline" className="w-full min-h-[44px]">
                         <Users className="w-4 h-4 mr-2" /> My Apply

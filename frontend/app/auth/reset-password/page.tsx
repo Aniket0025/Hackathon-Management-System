@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Lock } from "lucide-react"
 
@@ -92,14 +93,14 @@ export default function ResetPasswordPage() {
                 <Label htmlFor="password" className="font-serif">New password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 font-serif" placeholder="Enter a new password" required />
+                  <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 font-serif" placeholder="Enter a new password" required />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm" className="font-serif">Confirm password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="pl-10 font-serif" placeholder="Re-enter your new password" required />
+                  <PasswordInput id="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="pl-10 font-serif" placeholder="Re-enter your new password" required />
                 </div>
               </div>
               <Button type="submit" className="w-full font-serif" disabled={loading}>{loading ? "Updating..." : "Reset Password"}</Button>
