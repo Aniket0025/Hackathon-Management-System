@@ -418,7 +418,14 @@ export default function EventDetailsPage() {
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
               {role !== 'organizer' && role !== 'judge' && (
                 isRegisteredForThis ? (
-                  <Button variant="outline" disabled>Registered</Button>
+                  <div className="flex gap-3">
+                    <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors shadow-sm">
+                      <Link prefetch href={`/dashboard/participant/submissions?eventId=${event._id}`}>
+                        Submit Project
+                      </Link>
+                    </Button>
+                    <Button variant="outline" disabled>Registered</Button>
+                  </div>
                 ) : (
                   <Button
                     className="bg-cyan-600 hover:bg-cyan-700 transition-colors shadow-sm"
