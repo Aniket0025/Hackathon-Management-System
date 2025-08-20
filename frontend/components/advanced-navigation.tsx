@@ -28,6 +28,7 @@ import {
   MessageSquare,
   BarChart3,
   ChevronDown,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -234,6 +235,13 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
       const already = items.some((i) => i.href === '/dashboard/organizer/judges')
       if (!already) {
         items.push({ href: '/dashboard/organizer/judges', label: 'Judges', icon: Users })
+      }
+    }
+    // Participant-only: Submissions shortcut
+    if (role === 'participant') {
+      const already = items.some((i) => i.href === '/dashboard/participant/submissions')
+      if (!already) {
+        items.push({ href: '/dashboard/participant/submissions', label: 'Submissions', icon: Upload })
       }
     }
     return items

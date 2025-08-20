@@ -404,3 +404,117 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #34d399, #10b981);
 }
+
+/* Claymorphism utilities */
+.clay {
+  /* soft surface */
+  background: color-mix(in oklab, var(--color-card) 92%, white 8%);
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in oklab, var(--color-border) 85%, black 5%);
+  box-shadow:
+    8px 8px 20px rgba(0, 0, 0, 0.08), /* main drop */
+    -6px -6px 14px rgba(255, 255, 255, 0.6), /* top-left light */
+    inset 0 0 0 rgba(0,0,0,0); /* placeholder for active */
+  backdrop-filter: saturate(120%) blur(6px);
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.clay:hover {
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.10),
+    -8px -8px 18px rgba(255, 255, 255, 0.7),
+    inset 0 0 0 rgba(0,0,0,0);
+}
+
+.clay:active {
+  transform: translateY(1px);
+  box-shadow:
+    4px 4px 10px rgba(0,0,0,0.10),
+    -3px -3px 8px rgba(255,255,255,0.6),
+    inset 2px 2px 6px rgba(0,0,0,0.08);
+}
+
+/* Inset variant for pressed sections */
+.clay-inset {
+  box-shadow:
+    inset 8px 8px 20px rgba(0,0,0,0.08),
+    inset -6px -6px 14px rgba(255,255,255,0.6);
+}
+
+/* Pressable elements like buttons */
+.clay-pressable {
+  background: linear-gradient(145deg,
+    color-mix(in oklab, var(--color-primary) 14%, white 86%),
+    color-mix(in oklab, var(--color-primary) 8%, white 92%)
+  );
+  box-shadow:
+    4px 4px 10px rgba(0,0,0,0.08),
+    -3px -3px 8px rgba(255,255,255,0.6),
+    inset 0 0 0 rgba(0,0,0,0);
+  border: 1px solid color-mix(in oklab, var(--color-border) 85%, black 5%);
+}
+
+.clay-pressable:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    6px 6px 14px rgba(0,0,0,0.10),
+    -4px -4px 10px rgba(255,255,255,0.65),
+    inset 0 0 0 rgba(0,0,0,0);
+}
+
+.clay-pressable:active {
+  transform: translateY(0);
+  box-shadow:
+    2px 2px 6px rgba(0,0,0,0.10),
+    -2px -2px 6px rgba(255,255,255,0.55),
+    inset 2px 2px 6px rgba(0,0,0,0.10);
+}
+
+/* Dark mode tuning for clay */
+.dark .clay {
+  background: color-mix(in oklab, var(--color-card) 88%, black 12%);
+  box-shadow:
+    8px 8px 20px rgba(0,0,0,0.5),
+    -6px -6px 14px rgba(255,255,255,0.04),
+    inset 0 0 0 rgba(0,0,0,0);
+}
+
+.dark .clay:hover {
+  box-shadow:
+    12px 12px 28px rgba(0,0,0,0.55),
+    -8px -8px 18px rgba(255,255,255,0.05),
+    inset 0 0 0 rgba(0,0,0,0);
+}
+
+.dark .clay:active {
+  box-shadow:
+    4px 4px 12px rgba(0,0,0,0.55),
+    -3px -3px 8px rgba(255,255,255,0.04),
+    inset 2px 2px 8px rgba(0,0,0,0.35);
+}
+
+/* Ambient gradient background for pages */
+.ambient-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.ambient-bg::before {
+  content: "";
+  position: fixed;
+  inset: -20vmax;
+  z-index: -1;
+  background:
+    radial-gradient(40vmax 40vmax at 15% 10%, color-mix(in oklab, var(--color-primary) 22%, transparent 78%), transparent 60%),
+    radial-gradient(30vmax 30vmax at 85% 20%, color-mix(in oklab, var(--color-secondary) 20%, transparent 80%), transparent 60%),
+    radial-gradient(35vmax 35vmax at 30% 80%, color-mix(in oklab, #06b6d4 24%, transparent 76%), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklab, var(--color-background) 90%, white 10%), color-mix(in oklab, var(--color-background) 100%, white 0%));
+  filter: blur(40px) saturate(110%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.dark .ambient-bg::before {
+  opacity: 0.35;
+  filter: blur(50px) saturate(130%);
+}

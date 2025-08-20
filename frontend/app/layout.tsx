@@ -48,7 +48,7 @@ export default function RootLayout({
         {/* Fallback favicon for older browsers */}
         <link rel="icon" href="/hackhost-logo.png" />
       </head>
-      <body className="font-sans min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
+      <body className="font-sans min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 ambient-bg">
         <SocketProvider>
           <AdvancedNavigation />
           <div className="pt-16 md:pt-20">
