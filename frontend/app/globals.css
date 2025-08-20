@@ -518,3 +518,150 @@ html {
   opacity: 0.35;
   filter: blur(50px) saturate(130%);
 }
+
+/* No-grid variant: beams + noise only */
+.ambient-bg.texture-noise.no-grid.beam-lights::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(40vmax 20vmax at 10% -10%, color-mix(in oklab, var(--color-primary) 28%, transparent 72%), transparent 60%),
+    radial-gradient(30vmax 20vmax at 110% 0%, color-mix(in oklab, #06b6d4 22%, transparent 78%), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/feTurbulence%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+  background-size:
+    120% 100%,
+    100% 100%,
+    200px 200px;
+  background-position:
+    0% 0%,
+    0% 0%,
+    0 0;
+  mix-blend-mode: normal;
+  mask-image: radial-gradient(120vmax 120vmax at 50% 10%, black 55%, transparent 90%);
+  animation: beamsMove 18s linear infinite;
+  opacity: 0.22;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-bg.texture-noise.no-grid.beam-lights::after { animation: none; }
+}
+
+/* Composite overlay: noise + grid + beams (uses ::after so it stacks with ::before mesh) */
+.ambient-bg.texture-noise.grid-overlay.beam-lights::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    /* Light beams */
+    radial-gradient(40vmax 20vmax at 10% -10%, color-mix(in oklab, var(--color-primary) 28%, transparent 72%), transparent 60%),
+    radial-gradient(30vmax 20vmax at 110% 0%, color-mix(in oklab, #06b6d4 22%, transparent 78%), transparent 60%),
+    /* Grid (very subtle) */
+    linear-gradient(to right, color-mix(in oklab, var(--color-border) 12%, transparent 88%) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 12%, transparent 88%) 1px, transparent 1px),
+    /* Noise via SVG turbulence */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/feTurbulence%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+  background-size:
+    120% 100%,
+    100% 100%,
+    64px 64px,
+    64px 64px,
+    200px 200px;
+  background-position:
+    0% 0%,
+    0% 0%,
+    0 0,
+    0 0,
+    0 0;
+  mix-blend-mode: normal;
+  mask-image: radial-gradient(120vmax 120vmax at 50% 10%, black 55%, transparent 90%);
+  animation: beamsMove 18s linear infinite;
+  opacity: 0.22; /* soften overall overlay */
+}
+
+@keyframes beamsMove {
+  0% { background-position: 0% 0%, 0% 0%, 0 0, 0 0, 0 0; }
+  50% { background-position: 5% 0%, -3% 0%, 0 0, 0 0, 0 0; }
+  100% { background-position: 0% 0%, 0% 0%, 0 0, 0 0, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-bg.texture-noise.grid-overlay.beam-lights::after {
+    animation: none;
+  }
+}
+
+/* Dark mode grid a bit more subtle */
+.dark .ambient-bg.texture-noise.grid-overlay.beam-lights::after {
+  opacity: 0.18;
+}
+
+/* Glass and glow utilities */
+.glass-card {
+  background: color-mix(in oklab, var(--color-card) 75%, white 25%);
+  border: 1px solid color-mix(in oklab, var(--color-border) 70%, white 30%);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.08);
+}
+
+.glow-ring {
+  position: relative;
+}
+.glow-ring::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: conic-gradient(from 180deg at 50% 50%, rgba(16,185,129,.25), rgba(6,182,212,.25), rgba(16,185,129,.25));
+  filter: blur(12px);
+  opacity: .6;
+  z-index: -1;
+}
+
+.spotlight-hover {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight-hover::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(200px 200px at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.18), transparent 60%);
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+}
+.spotlight-hover:hover::before { opacity: 1; }
+
+/* Perf-lite mode: tone down overlays and disable beam animation */
+.perf-lite .ambient-bg::before { opacity: 0.35 !important; filter: blur(24px) saturate(105%) !important; }
+.perf-lite .ambient-bg.texture-noise.grid-overlay.beam-lights::after {
+  opacity: 0.5;
+  animation: none !important;
+  background-size:
+    110% 100%,
+    100% 100%,
+    40px 40px,
+    40px 40px,
+    200px 200px;
+}
+
+/* Mobile: reduce intensity further */
+@media (max-width: 768px) {
+  .ambient-bg::before { opacity: 0.45; filter: blur(28px) saturate(108%); }
+  .ambient-bg.texture-noise.grid-overlay.beam-lights::after {
+    opacity: 0.45;
+    animation: none;
+    background-size:
+      110% 100%,
+      100% 100%,
+      48px 48px,
+      48px 48px,
+      200px 200px;
+  }
+}
+

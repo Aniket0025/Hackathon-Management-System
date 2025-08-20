@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { Github, FileText, Video as VideoIcon, Save as SaveIcon, Loader2 } from "lucide-react"
 
 interface SubmissionItem {
   _id: string
@@ -30,6 +31,8 @@ export default function JudgeEventSubmissionsPage() {
   const [subs, setSubs] = useState<SubmissionItem[]>([])
   const [editedScores, setEditedScores] = useState<Record<string, number | "">>({})
   const [feedbacks, setFeedbacks] = useState<Record<string, string>>({})
+  const [wentWell, setWentWell] = useState<Record<string, string>>({})
+  const [keyPoints, setKeyPoints] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -49,15 +52,30 @@ export default function JudgeEventSubmissionsPage() {
         // Initialize edited scores/feedback so Save is available immediately
         const initScores: Record<string, number | ""> = {}
         const initFeedbacks: Record<string, string> = {}
+        const initWentWell: Record<string, string> = {}
+        const initKeyPoints: Record<string, string> = {}
         for (const it of arr) {
           const id = (it as any)?._id
           if (id) {
             initScores[id] = typeof (it as any).score === 'number' ? (it as any).score : ""
-            initFeedbacks[id] = typeof (it as any).feedback === 'string' ? (it as any).feedback : ""
+            const fb = typeof (it as any).feedback === 'string' ? (it as any).feedback : ""
+            initFeedbacks[id] = fb
+            if (fb) {
+              // naive parse of previously saved structured feedback
+              const wwMatch = fb.match(/What went well:\n([\s\S]*?)(\n\n|$)/)
+              if (wwMatch) initWentWell[id] = wwMatch[1].trim()
+              const kpMatch = fb.match(/Key points:\n([\s\S]*?)(\n\n|$)/)
+              if (kpMatch) {
+                const lines = kpMatch[1].split(/\r?\n/).map((l: string) => l.replace(/^[-*]\s*/, '')).filter(Boolean).join("\n")
+                initKeyPoints[id] = lines
+              }
+            }
           }
         }
         setEditedScores(initScores)
         setFeedbacks(initFeedbacks)
+        setWentWell(initWentWell)
+        setKeyPoints(initKeyPoints)
       } catch (e: any) {
         if (e?.name !== "AbortError") setError(e?.message || "Failed to load submissions")
       } finally {
@@ -99,7 +117,7 @@ export default function JudgeEventSubmissionsPage() {
             <CardContent>
               <div className="divide-y">
                 {subs.map((s) => (
-                  <div key={s._id} className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div key={s._id} className="py-4 flex flex-col gap-3">
                     <div className="space-y-1">
                       <div className="font-medium text-slate-900">{s.title}</div>
                       <div className="text-sm text-slate-600 flex flex-wrap items-center gap-2">
@@ -131,28 +149,52 @@ export default function JudgeEventSubmissionsPage() {
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <Textarea
-                            rows={2}
-                            placeholder="Optional feedback"
-                            value={feedbacks[s._id] ?? ""}
-                            onChange={(e) => setFeedbacks((prev) => ({ ...prev, [s._id]: e.target.value }))}
-                          />
+                          <div className="grid grid-cols-1 gap-2">
+                            <div className="text-xs uppercase tracking-wide text-slate-500">Reviewed Notes</div>
+                            <Textarea
+                              rows={2}
+                              placeholder="Overall feedback (optional)"
+                              value={feedbacks[s._id] ?? ""}
+                              onChange={(e) => setFeedbacks((prev) => ({ ...prev, [s._id]: e.target.value }))}
+                            />
+                            <Textarea
+                              rows={2}
+                              placeholder="What went well (optional)"
+                              value={wentWell[s._id] ?? ""}
+                              onChange={(e) => setWentWell((prev) => ({ ...prev, [s._id]: e.target.value }))}
+                            />
+                            <Textarea
+                              rows={2}
+                              placeholder="Key points (one per line)"
+                              value={keyPoints[s._id] ?? ""}
+                              onChange={(e) => setKeyPoints((prev) => ({ ...prev, [s._id]: e.target.value }))}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-4">
-                        <a href={s.repoUrl || '#'} target={s.repoUrl ? "_blank" : undefined} rel="noreferrer" className={!s.repoUrl ? 'pointer-events-none opacity-50' : ''}>Repo</a>
+                    <div className="mt-2 flex items-center gap-2 self-end">
+                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                        <a href={s.repoUrl || '#'} target={s.repoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.repoUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                          <Github className="h-4 w-4" />
+                          <span>Repo</span>
+                        </a>
                       </Button>
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-4">
-                        <a href={s.docsUrl || '#'} target={s.docsUrl ? "_blank" : undefined} rel="noreferrer" className={!s.docsUrl ? 'pointer-events-none opacity-50' : ''}>Docs</a>
+                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                        <a href={s.docsUrl || '#'} target={s.docsUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.docsUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                          <FileText className="h-4 w-4" />
+                          <span>Docs</span>
+                        </a>
                       </Button>
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-4">
-                        <a href={s.videoUrl || '#'} target={s.videoUrl ? "_blank" : undefined} rel="noreferrer" className={!s.videoUrl ? 'pointer-events-none opacity-50' : ''}>Video</a>
+                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                        <a href={s.videoUrl || '#'} target={s.videoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.videoUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                          <VideoIcon className="h-4 w-4" />
+                          <span>Video</span>
+                        </a>
                       </Button>
                       <Button
                         size="sm"
-                        className="rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-sm"
+                        className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 shadow-md px-4"
                         disabled={
                           saving[s._id] ||
                           !(
@@ -171,13 +213,26 @@ export default function JudgeEventSubmissionsPage() {
                             setSaving((p) => ({ ...p, [s._id]: true }))
                             const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
                             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                            const combinedFeedback = (() => {
+                              const parts: string[] = []
+                              const f = (feedbacks[s._id] ?? "").trim()
+                              const ww = (wentWell[s._id] ?? "").trim()
+                              const kp = (keyPoints[s._id] ?? "").trim()
+                              if (ww) parts.push(`What went well:\n${ww}`)
+                              if (kp) {
+                                const items = kp.split(/\r?\n/).filter(Boolean).map((l: string) => `- ${l}`)
+                                parts.push(["Key points:", ...items].join("\n"))
+                              }
+                              if (f) parts.push(`Additional notes:\n${f}`)
+                              return parts.join("\n\n")
+                            })()
                             const res = await fetch(`${base}/api/submissions/${s._id}/score`, {
                               method: 'PATCH',
                               headers: {
                                 'Content-Type': 'application/json',
                                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
                               },
-                              body: JSON.stringify({ score: effectiveScore, feedback: feedbacks[s._id] ?? "" }),
+                              body: JSON.stringify({ score: effectiveScore, feedback: combinedFeedback }),
                               credentials: 'include',
                             })
                             const data = await res.json().catch(() => ({}))
@@ -194,7 +249,14 @@ export default function JudgeEventSubmissionsPage() {
                           }
                         }}
                       >
-                        {saving[s._id] ? 'Saving...' : 'Save'}
+                        <span className="flex items-center gap-1">
+                          {saving[s._id] ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <SaveIcon className="h-4 w-4" />
+                          )}
+                          <span>{saving[s._id] ? 'Saving' : 'Save'}</span>
+                        </span>
                       </Button>
                     </div>
                   </div>

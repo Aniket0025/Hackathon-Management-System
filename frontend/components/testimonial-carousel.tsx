@@ -38,7 +38,24 @@ export default function TestimonialCarousel({ items = DEFAULT_ITEMS, interval = 
 
   return (
     <div className="relative mx-auto w-full max-w-4xl">
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
+      <div
+        className="relative overflow-hidden rounded-2xl border glass-card glow-ring spotlight-hover p-8 shadow-xl"
+        onMouseEnter={(e) => { (e.currentTarget as any)._rect = e.currentTarget.getBoundingClientRect() }}
+        onMouseLeave={(e) => { (e.currentTarget as any)._rect = null; if ((e.currentTarget as any)._raf) cancelAnimationFrame((e.currentTarget as any)._raf); (e.currentTarget as any)._raf = null; }}
+        onMouseMove={(e) => {
+          const el = e.currentTarget as any
+          if (!el._rect) el._rect = el.getBoundingClientRect()
+          const rect = el._rect as DOMRect
+          const x = e.clientX - rect.left
+          const y = e.clientY - rect.top
+          if (el._raf) return
+          el._raf = requestAnimationFrame(() => {
+            el._raf = null
+            el.style.setProperty('--mx', `${x}px`)
+            el.style.setProperty('--my', `${y}px`)
+          })
+        }}
+      >
         {items.map((t, i) => (
           <div
             key={i}
@@ -55,8 +72,8 @@ export default function TestimonialCarousel({ items = DEFAULT_ITEMS, interval = 
             </figure>
           </div>
         ))}
-        {/* gradient glow */}
-        <div className="pointer-events-none absolute -inset-1 -z-10 rounded-3xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 opacity-20 blur-2xl" />
+        {/* gradient glow backdrop */}
+        <div className="pointer-events-none absolute -inset-1 -z-10 rounded-3xl bg-gradient-to-r from-emerald-500/30 via-cyan-500/30 to-blue-500/30 opacity-25 blur-2xl" />
       </div>
       <div className="mt-4 flex justify-center gap-2">
         {items.map((_, i) => (
@@ -64,7 +81,9 @@ export default function TestimonialCarousel({ items = DEFAULT_ITEMS, interval = 
             aria-label={`Go to slide ${i + 1}`}
             key={i}
             onClick={() => setIndex(i)}
-            className={`h-2.5 w-2.5 rounded-full transition-all ${i === index ? "bg-emerald-600 w-6" : "bg-slate-300 hover:bg-slate-400"}`}
+            className={`relative h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+              i === index ? "bg-emerald-600 w-6 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" : "bg-slate-300 hover:bg-slate-400"
+            }`}
           />
         ))}
       </div>
