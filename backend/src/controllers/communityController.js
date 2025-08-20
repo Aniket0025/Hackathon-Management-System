@@ -197,3 +197,51 @@ async function addAnswer(req, res, next) {
 }
 
 module.exports.addAnswer = addAnswer;
+
+// Upvote a question
+async function upvoteQuestion(req, res, next) {
+  try {
+    const { id } = req.params;
+    const q = await Question.findByIdAndUpdate(id, { $inc: { upvotes: 1 } }, { new: true });
+    if (!q) return res.status(404).json({ message: 'Question not found' });
+    res.json({ question: q });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Upvote an answer on a question
+async function upvoteAnswer(req, res, next) {
+  try {
+    const { qid, aid } = req.params;
+    const q = await Question.findById(qid);
+    if (!q) return res.status(404).json({ message: 'Question not found' });
+    const answer = q.answers.id(aid);
+    if (!answer) return res.status(404).json({ message: 'Answer not found' });
+    answer.upvotes = (answer.upvotes || 0) + 1;
+    await q.save();
+    res.json({ question: q, answer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Toggle or set solved on a question
+async function setSolved(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { solved } = req.body || {};
+    const q = await Question.findById(id);
+    if (!q) return res.status(404).json({ message: 'Question not found' });
+    const nextVal = typeof solved === 'boolean' ? !!solved : !q.solved;
+    q.solved = nextVal;
+    await q.save();
+    res.json({ question: q });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.upvoteQuestion = upvoteQuestion;
+module.exports.upvoteAnswer = upvoteAnswer;
+module.exports.setSolved = setSolved;

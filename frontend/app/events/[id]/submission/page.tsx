@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,7 +54,6 @@ type MyRegistration = {
 
 export default function EventSubmissionPage() {
   const params = useParams<{ id: string }>()
-  const router = useRouter()
   const eventId = params?.id as string
 
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
@@ -164,16 +163,6 @@ export default function EventSubmissionPage() {
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Badge variant="secondary" className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 mb-2">Submission</Badge>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{eventName}</h1>
-            {authedEmail && (
-              <div className="text-sm text-slate-600 mt-1">Signed in as {authedEmail}</div>
-            )}
-          </div>
-          <Button variant="outline" onClick={() => router.push('/my-apply')}>Back to My Apply</Button>
-        </div>
 
         <Card>
           <CardHeader>

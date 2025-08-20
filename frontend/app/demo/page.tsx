@@ -28,10 +28,10 @@ export default function DemoPage() {
         </div>
 
         <div className="mt-8 flex gap-4 justify-center">
-          <Button asChild className="bg-gradient-to-r from-cyan-600 to-blue-600">
+          <Button asChild variant="cta" size="xl">
             <Link href="/auth/register"><Rocket className="w-4 h-4 mr-2" />Start Your Event</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" size="xl">
             <Link href="/">Back to Home</Link>
           </Button>
         </div>

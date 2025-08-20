@@ -79,20 +79,26 @@ export default function AnalyticsPage() {
           
           {/* Action Bar */}
           <div className="flex items-center justify-center gap-4 mt-8">
-            <Button 
-              onClick={handleRefresh} 
+            <Button
+              variant="cta"
+              size="lg"
+              onClick={handleRefresh}
               disabled={isRefreshing}
-              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+              className="transform-gpu transition-all duration-300 will-change-transform shadow-2xl shadow-emerald-600/30 hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/50 ring-1 ring-emerald-300/30 hover:ring-emerald-400/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-3deg)_translateY(-2px)]"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
             </Button>
-            <Button variant="outline">
+            <Button
+              variant="outline"
+              size="lg"
+              className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
+            >
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </Button>
             {lastUpdated && (
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-slate-700 font-medium">
                 Last updated: {lastUpdated}
               </span>
             )}
