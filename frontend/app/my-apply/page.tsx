@@ -90,9 +90,8 @@ export default function MyApplyPage() {
     const saved = localStorage.getItem("hh_my_email")
     if (saved) {
       setEmail(saved)
-      setTimeout(() => {
-        if (!authedEmail && saved) fetchMine()
-      }, 0)
+      // Fetch immediately with known email to avoid race with state update
+      if (!authedEmail) fetchMine(saved)
     }
 
     const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
@@ -110,7 +109,8 @@ export default function MyApplyPage() {
         if (em) {
           setAuthedEmail(em)
           setEmail(em)
-          setTimeout(() => fetchMine(), 0)
+          // Fetch immediately with known email
+          fetchMine(em)
         }
         return null
       })
@@ -212,17 +212,18 @@ export default function MyApplyPage() {
     return Array.from(byId.values())
   }, [regs])
 
-  const fetchMine = async () => {
+  const fetchMine = async (specificEmail?: string) => {
     setError(null)
-    if (!email) {
+    const useEmail = (specificEmail ?? email)?.trim()
+    if (!useEmail) {
       setRegs([])
       return
     }
     try {
       setLoading(true)
-      if (typeof window !== "undefined") localStorage.setItem("hh_my_email", email)
+      if (typeof window !== "undefined") localStorage.setItem("hh_my_email", useEmail)
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-      const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(email)}`, { credentials: "include" })
+      const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(useEmail)}`, { credentials: "include" })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || "Failed to load registrations")
       setRegs(Array.isArray(data?.registrations) ? data.registrations : [])
@@ -290,7 +291,7 @@ export default function MyApplyPage() {
                   />
                 </div>
               </div>
-              <Button onClick={fetchMine} disabled={loading || !email}>
+              <Button onClick={() => fetchMine()} disabled={loading || !email}>
                 {loading ? "Loading…" : authedEmail ? "Refresh" : "Check"}
               </Button>
             </div>
