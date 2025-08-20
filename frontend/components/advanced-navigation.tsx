@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, memo } from "react"
+import { useState, useEffect, useMemo, useRef, memo, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { SocketContext } from "@/components/realtime/socket-provider"
 
 import {
   Bell,
@@ -55,12 +56,9 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   }
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  // simple demo notifications; replace with API later
-  const [notifItems, setNotifItems] = useState<{ id: string; title: string; time: string; read?: boolean }[]>([
-    { id: "1", title: "Your team was invited to Event X", time: "2m ago" },
-    { id: "2", title: "New comment on your community post", time: "15m ago" },
-    { id: "3", title: "Submission approved by judge", time: "1h ago" },
-  ])
+  // Notifications loaded from API
+  type Notif = { id: string; title: string; createdAt?: string; read?: boolean }
+  const [notifItems, setNotifItems] = useState<Notif[]>([])
   const notifications = notifItems.filter((n) => !n.read).length
   const [isScrolled, setIsScrolled] = useState(false)
   const scrollRaf = useRef<number | null>(null)
@@ -69,6 +67,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   const [role, setRole] = useState<string | null>(null)
   const [firstName, setFirstName] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const { socket } = useContext(SocketContext)
 
   useEffect(() => {
     const onScroll = () => {
@@ -128,6 +127,40 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
     loadRole()
   }, [isAuthed])
 
+  // Load notifications from backend and subscribe to realtime
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+        if (!token) { setNotifItems([]); return }
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/notifications?status=all&limit=20`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) { setNotifItems([]); return }
+        const items = Array.isArray(data.notifications) ? data.notifications : []
+        setNotifItems(
+          items.map((n: any) => ({ id: n._id || n.id, title: n.title || "Notification", createdAt: n.createdAt, read: !!n.read }))
+        )
+      } catch {
+        setNotifItems([])
+      }
+    }
+    load()
+  }, [isAuthed])
+
+  useEffect(() => {
+    if (!socket) return
+    const onNew = (n: any) => {
+      setNotifItems((prev) => [{ id: n._id || n.id || crypto.randomUUID(), title: n.title || "Notification", createdAt: n.createdAt, read: false }, ...prev])
+    }
+    socket.on("notification:new", onNew)
+    return () => {
+      socket.off("notification:new", onNew)
+    }
+  }, [socket])
+
   const handleLogout = () => {
     try {
       localStorage.removeItem("token")
@@ -141,8 +174,16 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
 
   const navigationItems = useMemo(() => NAV_ITEMS, [])
 
-  const markAllRead = () => {
-    setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
+  const markAllRead = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (token) {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        await fetch(`${base}/api/notifications/read-all`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } })
+      }
+    } finally {
+      setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
+    }
   }
   const clearAll = () => setNotifItems([])
 
@@ -236,7 +277,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                       {notifItems.map((n) => (
                         <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5">
                           <span className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.title}</span>
-                          <span className="text-xs text-slate-500">{n.time}</span>
+                          <span className="text-xs text-slate-500">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</span>
                         </DropdownMenuItem>
                       ))}
                     </div>
@@ -294,6 +335,19 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                         My Apply
                       </Link>
                     </DropdownMenuItem>
+                    {role === 'participant' && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href="http://localhost:3001/dashboard/participant"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center"
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          Participant Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
                       Logout
