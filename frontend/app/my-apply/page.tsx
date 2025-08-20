@@ -331,7 +331,16 @@ export default function MyApplyPage() {
                   />
                 </div>
               </div>
-              {/* Refresh/Check button removed as requested; press Enter to fetch */}
+              <div className="flex items-center">
+                <Button
+                  onClick={() => fetchMine()}
+                  variant="cta"
+                  className="min-w-32 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </Button>
+              </div>
             </div>
 
             {authedEmail && (
@@ -380,23 +389,39 @@ export default function MyApplyPage() {
                 className="w-full sm:w-80"
               />
               <div className="inline-flex rounded-md border bg-white p-1">
-                <button
-                  className={`px-3 py-1 text-sm rounded ${typeFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-700'}`}
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'all' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'all' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
                   onClick={() => setTypeFilter('all')}
-                >All</button>
-                <button
-                  className={`px-3 py-1 text-sm rounded ${typeFilter === 'team' ? 'bg-slate-900 text-white' : 'text-slate-700'}`}
+                >All</Button>
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'team' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'team' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
                   onClick={() => setTypeFilter('team')}
-                >Teams</button>
-                <button
-                  className={`px-3 py-1 text-sm rounded ${typeFilter === 'individual' ? 'bg-slate-900 text-white' : 'text-slate-700'}`}
+                >Teams</Button>
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'individual' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'individual' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
                   onClick={() => setTypeFilter('individual')}
-                >Individuals</button>
+                >Individuals</Button>
               </div>
             </div>
           </div>
           <Card>
             <CardContent className="space-y-3 pt-6">
+              {loading && (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="animate-pulse border rounded-md p-3 bg-white">
+                      <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              )}
               {filtered.length === 0 && !loading && (
                 <div className="text-sm text-slate-600">No registrations found.</div>
               )}
@@ -420,21 +445,20 @@ export default function MyApplyPage() {
                       </div>
                       <div className="hidden sm:flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <Link href={`/events/${r.event}`}>
-                          <Button size="sm" variant="secondary" className="bg-slate-900 hover:bg-slate-800 text-white">View event</Button>
+                          <Button size="sm" variant="cta" className="shadow-md">View event</Button>
                         </Link>
                         <Link href={`/events/${r.event}/submission`}>
-                          <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm">Open submission</Button>
+                          <Button size="sm" variant="cta" className="shadow-md">Open submission</Button>
                         </Link>
                       </div>
-                    </div>
-                  </summary>
-                  <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
+                  </div>
+                </summary>
+                <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1">
                       <div className="font-semibold text-slate-800">Personal Info</div>
                       <div>Name: {r.personalInfo?.firstName} {r.personalInfo?.lastName}</div>
                       <div>Email: {r.personalInfo?.email}</div>
                       {r.personalInfo?.phone && <div>Phone: {r.personalInfo.phone}</div>}
-                      {r.personalInfo?.organization && <div>Org: {r.personalInfo.organization}</div>}
                       {r.personalInfo?.instituteName && <div>Institute: {r.personalInfo.instituteName}</div>}
                       {(r.personalInfo?.type || r.personalInfo?.domain) && (
                         <div>Type/Domain: {r.personalInfo?.type} {r.personalInfo?.domain && `· ${r.personalInfo.domain}`}</div>
@@ -468,10 +492,10 @@ export default function MyApplyPage() {
                         )}
                         <div className="sm:hidden flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                           <Link href={`/events/${r.event}`}>
-                            <Button size="sm" variant="secondary" className="bg-slate-900 hover:bg-slate-800 text-white w-full">View event</Button>
+                            <Button size="sm" variant="cta" className="w-full shadow-md">View event</Button>
                           </Link>
                           <Link href={`/events/${r.event}/submission`}>
-                            <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white w-full shadow-sm">Open submission</Button>
+                            <Button size="sm" variant="cta" className="w-full shadow-md">Open submission</Button>
                           </Link>
                         </div>
                       </div>
