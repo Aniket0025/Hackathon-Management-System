@@ -157,6 +157,7 @@ export default function EventRegistrationPage() {
   })
 
   const [isLoading, setIsLoading] = useState(false)
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [newSkill, setNewSkill] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null)
@@ -248,6 +249,7 @@ export default function EventRegistrationPage() {
           if (s === "no" || s === "false" || s === "n") return "no"
           return ""
         }
+        setCurrentUserRole(user.role || null)
         setRegistrationData((prev) => ({
           ...prev,
           personalInfo: {
@@ -491,6 +493,10 @@ export default function EventRegistrationPage() {
     setSubmitError(null)
     setIsLoading(true)
     try {
+      // Client-side guard: block judges proactively
+      if (currentUserRole === "judge") {
+        throw new Error("Judges are not allowed to register for events")
+      }
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
       // Ensure backend-required personalInfo exists: derive from Member 1 if needed
       const derivedPI = (() => {
@@ -515,10 +521,10 @@ export default function EventRegistrationPage() {
         }
       })()
       const payload = { ...registrationData, personalInfo: derivedPI }
-
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       const res = await fetch(`${base}/api/events/${id}/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(payload),
       })
       const data = await res.json().catch(() => ({}))

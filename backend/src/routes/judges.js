@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { auth, requireRoles } = require('../middleware/auth');
-const { createJudge, assignJudge, listAssignments, listJudges, listJudgeWork } = require('../controllers/judgesController');
 
-// All routes here require organizer role
+const { createJudge, assignJudge, listAssignments, listJudges, listMyAssignedEvents, listJudgeWork } = require('../controllers/judgesController');
+
+
+// Judge self routes
+router.get('/my-events', auth(true), requireRoles('judge'), listMyAssignedEvents);
+
+// Organizer routes
 router.use(auth(true), requireRoles('organizer'));
 
 router.post('/', createJudge); // create judge and optional assignment

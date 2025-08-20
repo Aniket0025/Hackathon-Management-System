@@ -76,6 +76,35 @@ async function listAssignments(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// GET /api/judges/my-events
+// Judge-only: list events assigned to the authenticated judge
+async function listMyAssignedEvents(req, res, next) {
+  try {
+    const judgeId = req.user?.id;
+    if (!judgeId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const docs = await JudgeAssignment.find({ judge: judgeId })
+      .sort({ createdAt: -1 })
+      .populate('event', 'title startDate endDate status bannerUrl location');
+
+    const events = docs
+      .filter(d => d.event)
+      .map(d => ({
+        id: d.event._id,
+        title: d.event.title,
+        startDate: d.event.startDate,
+        endDate: d.event.endDate,
+        status: d.event.status,
+        bannerUrl: d.event.bannerUrl,
+        location: d.event.location,
+        assignmentId: d._id,
+        assignedAt: d.createdAt,
+      }));
+
+    return res.json({ events });
+  } catch (err) { next(err); }
+}
+
 // GET /api/judges
 async function listJudges(req, res, next) {
   try {
@@ -125,4 +154,4 @@ async function listJudgeWork(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { createJudge, assignJudge, listAssignments, listJudges, listJudgeWork };
+module.exports = { createJudge, assignJudge, listAssignments, listJudges, listMyAssignedEvents, listJudgeWork };
