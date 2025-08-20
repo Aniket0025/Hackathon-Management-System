@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,26 +11,84 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Upload } from "lucide-react"
 
-type EventLite = { _id: string; title: string }
-type RegistrationLite = {
-  _id: string
-  event: string
-  eventName: string
-  registrationType?: string
-  teamInfo?: { teamName?: string }
-}
+// Mock submissions data
+const mockSubmissions = [
+  {
+    id: 1,
+    eventId: 1,
+    eventName: "AI Innovation Challenge 2024",
+    projectName: "EcoAI Assistant",
+    description: "An AI-powered assistant that helps users make environmentally conscious decisions",
+    status: "submitted",
+    submittedAt: "2024-03-14T15:30:00",
+    lastUpdated: "2024-03-14T15:30:00",
+    round: "final",
+    teamName: "AI Pioneers",
+    githubUrl: "https://github.com/ai-pioneers/ecoai-assistant",
+    demoUrl: "https://ecoai-demo.vercel.app",
+    videoUrl: "https://youtube.com/watch?v=demo123",
+    files: [
+      { name: "project-documentation.pdf", size: "2.4 MB", type: "application/pdf" },
+      { name: "demo-video.mp4", size: "45.2 MB", type: "video/mp4" },
+      { name: "presentation.pptx", size: "8.1 MB", type: "application/vnd.ms-powerpoint" },
+    ],
+    judgeScore: 8.5,
+    feedback: "Excellent implementation with strong environmental impact potential.",
+  },
+  {
+    id: 2,
+    eventId: 2,
+    eventName: "Sustainable Tech Hackathon",
+    projectName: "GreenTracker",
+    description: "Mobile app for tracking personal carbon footprint",
+    status: "draft",
+    submittedAt: null,
+    lastUpdated: "2024-02-20T10:15:00",
+    round: "preliminary",
+    teamName: null, // Individual submission
+    githubUrl: "https://github.com/johndoe/greentracker",
+    demoUrl: "",
+    videoUrl: "",
+    files: [{ name: "wireframes.pdf", size: "1.2 MB", type: "application/pdf" }],
+    judgeScore: null,
+    feedback: null,
+  },
+]
+
+const mockEvents = [
+  {
+    id: 1,
+    name: "AI Innovation Challenge 2024",
+    submissionDeadline: "2024-03-15T23:59:00",
+    status: "active",
+    allowedFileTypes: [".pdf", ".doc", ".docx", ".mp4", ".mov", ".zip"],
+    maxFileSize: "50MB",
+    rounds: ["preliminary", "final"],
+    currentRound: "final",
+  },
+  {
+    id: 2,
+    name: "Sustainable Tech Hackathon",
+    submissionDeadline: "2024-02-22T23:59:00",
+    status: "active",
+    allowedFileTypes: [".pdf", ".doc", ".docx", ".mp4", ".mov", ".zip"],
+    maxFileSize: "50MB",
+    rounds: ["preliminary"],
+    currentRound: "preliminary",
+  },
+]
 
 export default function SubmissionsPage() {
   const router = useRouter()
   const params = useSearchParams()
   const eventId = useMemo(() => params.get("eventId") || "", [params])
 
-  const [event, setEvent] = useState<EventLite | null>(null)
+  const [event, setEvent] = useState<{ _id: string; title: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [meEmail, setMeEmail] = useState<string | null>(null)
-  const [registrations, setRegistrations] = useState<RegistrationLite[]>([])
+  const [registrations, setRegistrations] = useState<Array<{ _id: string; event: string; eventName: string; registrationType?: string; teamInfo?: { teamName?: string } }>>([])
   const [regsLoading, setRegsLoading] = useState(false)
   const [regsError, setRegsError] = useState<string | null>(null)
   const [eventsById, setEventsById] = useState<Record<string, { _id: string; title: string; bannerUrl?: string }>>({})
@@ -45,7 +102,6 @@ export default function SubmissionsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState<string | null>(null)
 
-  // Load event info if eventId provided
   useEffect(() => {
     const run = async () => {
       if (!eventId) { setEvent(null); return }

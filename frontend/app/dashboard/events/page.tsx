@@ -146,7 +146,7 @@ export default function EventsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 glass-card rounded-xl">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all">All Events</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>

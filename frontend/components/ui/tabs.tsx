@@ -26,7 +26,7 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]",
+        "inline-flex w-fit items-center justify-center gap-2 rounded-xl p-1.5 bg-white/90 backdrop-blur border border-slate-200 shadow-sm",
         className
       )}
       {...props}
@@ -42,7 +42,17 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all duration-300 transform-gpu will-change-transform",
+        // base (inactive)
+        "bg-white/80 text-slate-700 border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-md",
+        // focus ring
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 focus-visible:ring-offset-2",
+        // 3D transforms
+        "[transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(2deg)_translateY(-1px)] active:translate-y-0",
+        // active state: higher contrast, gradient, inner shadow
+        "data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-lg data-[state=active]:hover:shadow-xl data-[state=active]:hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-2deg)_translateY(-2px)]",
+        // dark mode tweaks
+        "dark:bg-slate-800/80 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white dark:data-[state=active]:from-emerald-500 dark:data-[state=active]:to-green-500",
         className
       )}
       {...props}

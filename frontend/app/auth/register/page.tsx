@@ -283,7 +283,13 @@ export default function RegisterPage() {
               {/* OTP Section */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Button type="button" variant="secondary" onClick={handleSendOtp} disabled={otpLoading || !formData.email || !!verificationToken}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-2 border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading || !formData.email || !!verificationToken}
+                  >
                     {otpLoading ? "Sending..." : (otpSent ? "Resend OTP" : "Send OTP")}
                   </Button>
                   {verificationToken && (
@@ -300,7 +306,13 @@ export default function RegisterPage() {
                     onChange={(e) => setOtp(e.target.value)}
                     className="font-serif"
                   />
-                  <Button type="button" onClick={handleVerifyOtp} disabled={otpLoading || !otp || !!verificationToken}>
+                  <Button
+                    type="button"
+                    variant="cta"
+                    className="ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-90 disabled:hover:translate-y-0"
+                    onClick={handleVerifyOtp}
+                    disabled={otpLoading || !otp || !!verificationToken}
+                  >
                     {otpLoading ? "Verifying..." : "Verify"}
                   </Button>
                 </div>
@@ -363,7 +375,12 @@ export default function RegisterPage() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full font-serif" disabled={isLoading || !verificationToken}>
+              <Button
+                type="submit"
+                variant="cta"
+                className="w-full font-serif ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-90 disabled:hover:translate-y-0"
+                disabled={isLoading || !verificationToken}
+              >
                 {isLoading ? "Creating account..." : (verificationToken ? "Create Account" : "Verify Email to Continue")}
               </Button>
             </form>
@@ -377,7 +394,10 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full font-serif bg-transparent">
+            <Button
+              variant="outline"
+              className="w-full font-serif bg-white text-slate-900 hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 shadow-sm"
+            >
               <Github className="mr-2 h-4 w-4" />
               GitHub
             </Button>
