@@ -32,7 +32,7 @@ interface DashboardLayoutProps {
   userRole?: "organizer" | "participant" | "judge"
 }
 
-export default function EnhancedDashboardLayout({ children, userRole = "participant" }: DashboardLayoutProps) {
+export default function EnhancedDashboardLayout({ children, userRole = "organizer" }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [notifications, setNotifications] = useState(3)
   const pathname = usePathname()
@@ -42,13 +42,7 @@ export default function EnhancedDashboardLayout({ children, userRole = "particip
       { name: "Judges", href: "/dashboard/organizer/judges", icon: Users },
       { name: "Evaluations", href: "/dashboard/organizer/evaluations", icon: Trophy },
     ],
-    participant: [
-      { name: "Dashboard", href: "/dashboard/participant", icon: Home },
-      { name: "My Events", href: "/dashboard/participant/events", icon: Calendar },
-      { name: "Submissions", href: "/dashboard/participant/submissions", icon: FileText },
-      { name: "Communications", href: "/dashboard/communications", icon: MessageSquare },
-      { name: "Profile", href: "/dashboard/participant/profile", icon: Settings },
-    ],
+    participant: [],
     judge: [
       { name: "Dashboard", href: "/dashboard/judge", icon: Home },
       { name: "Evaluations", href: "/dashboard/judge/evaluations", icon: Trophy },
