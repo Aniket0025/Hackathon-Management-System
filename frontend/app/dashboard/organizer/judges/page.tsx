@@ -172,7 +172,8 @@ export default function OrganizerAssignJudgesPage() {
                 <Button
                   type="submit"
                   disabled={!canSubmit || loading}
-                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-md rounded-md disabled:opacity-100 disabled:from-slate-300 disabled:to-slate-400 disabled:text-white disabled:cursor-not-allowed"
+                  variant="cta"
+                  className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200 disabled:opacity-100 disabled:cursor-not-allowed disabled:ring-2 disabled:ring-emerald-300/60"
                 >
                   {loading ? "Assigning..." : "Create & Assign"}
                 </Button>

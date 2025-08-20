@@ -435,7 +435,12 @@ export default function CreateEventPage() {
                       </div>
                     </div>
                     <div className="pt-2 flex justify-end">
-                      <Button type="button" onClick={() => setActiveTab("rounds")} className="bg-gradient-to-r from-cyan-600 to-blue-600">
+                      <Button
+                        type="button"
+                        variant="cta"
+                        className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200"
+                        onClick={() => setActiveTab("rounds")}
+                      >
                         Next
                       </Button>
                     </div>
@@ -492,7 +497,12 @@ export default function CreateEventPage() {
                       </div>
                     </div>
                     <div className="pt-2 flex justify-end">
-                      <Button type="button" onClick={() => setActiveTab("rules_prizes")} className="bg-gradient-to-r from-cyan-600 to-blue-600">
+                      <Button
+                        type="button"
+                        variant="cta"
+                        className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200"
+                        onClick={() => setActiveTab("rules_prizes")}
+                      >
                         Next
                       </Button>
                     </div>
@@ -543,7 +553,12 @@ export default function CreateEventPage() {
                       </div>
                     </div>
                     <div className="pt-2 flex justify-end">
-                      <Button type="button" onClick={() => setActiveTab("sponsors")} className="bg-gradient-to-r from-cyan-600 to-blue-600">
+                      <Button
+                        type="button"
+                        variant="cta"
+                        className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200"
+                        onClick={() => setActiveTab("sponsors")}
+                      >
                         Next
                       </Button>
                     </div>
@@ -594,7 +609,12 @@ export default function CreateEventPage() {
                       </div>
                     </div>
                     <div className="pt-2">
-                      <Button type="submit" disabled={saving} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600">
+                      <Button
+                        type="submit"
+                        disabled={saving}
+                        variant="cta"
+                        className="w-full shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200"
+                      >
                         {saving ? "Creating…" : "Create Event"}
                       </Button>
                     </div>

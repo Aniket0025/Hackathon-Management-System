@@ -426,7 +426,7 @@ export default function CreateEventPage() {
             <Button type="button" variant="outline" asChild>
               <Link href="/dashboard">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} variant="cta" className="shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-xl hover:shadow-2xl transition-all duration-200">
               {isLoading ? "Creating Event..." : "Create Event"}
             </Button>
           </div>
