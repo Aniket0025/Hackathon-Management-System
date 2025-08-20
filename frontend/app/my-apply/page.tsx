@@ -90,9 +90,8 @@ export default function MyApplyPage() {
     const saved = localStorage.getItem("hh_my_email")
     if (saved) {
       setEmail(saved)
-      setTimeout(() => {
-        if (!authedEmail && saved) fetchMine()
-      }, 0)
+      // Fetch immediately with known email to avoid race with state update
+      if (!authedEmail) fetchMine(saved)
     }
 
     const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
@@ -110,7 +109,8 @@ export default function MyApplyPage() {
         if (em) {
           setAuthedEmail(em)
           setEmail(em)
-          setTimeout(() => fetchMine(), 0)
+          // Fetch immediately with known email
+          fetchMine(em)
         }
         return null
       })
@@ -212,17 +212,18 @@ export default function MyApplyPage() {
     return Array.from(byId.values())
   }, [regs])
 
-  const fetchMine = async () => {
+  const fetchMine = async (specificEmail?: string) => {
     setError(null)
-    if (!email) {
+    const useEmail = (specificEmail ?? email)?.trim()
+    if (!useEmail) {
       setRegs([])
       return
     }
     try {
       setLoading(true)
-      if (typeof window !== "undefined") localStorage.setItem("hh_my_email", email)
+      if (typeof window !== "undefined") localStorage.setItem("hh_my_email", useEmail)
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-      const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(email)}`, { credentials: "include" })
+      const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(useEmail)}`, { credentials: "include" })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || "Failed to load registrations")
       setRegs(Array.isArray(data?.registrations) ? data.registrations : [])
@@ -290,7 +291,7 @@ export default function MyApplyPage() {
                   />
                 </div>
               </div>
-              <Button onClick={fetchMine} disabled={loading || !email}>
+              <Button onClick={() => fetchMine()} disabled={loading || !email}>
                 {loading ? "Loading…" : authedEmail ? "Refresh" : "Check"}
               </Button>
             </div>
@@ -313,35 +314,7 @@ export default function MyApplyPage() {
           </CardContent>
         </Card>
 
-        {/* Enrolled in Events */}
-        <div className="mt-4 space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900">Enrolled in Events</h2>
-          {appliedEvents.length === 0 ? (
-            <div className="text-sm text-slate-600">No event applications yet.</div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {appliedEvents.map((e) => (
-                <Card
-                  key={e.id}
-                  className="shadow-sm"
-                  onClick={() => router.push(`/events/${e.id}/submission`)}
-                  role="link"
-                  aria-label={`Open submission for ${e.name}`}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center justify-between">
-                      <span className="truncate" title={e.name}>{e.name}</span>
-                      <Badge variant="secondary">{e.count}</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-sm text-slate-500">Click to open submission</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Enrolled in Events section removed as per request */}
 
         {/* Full list of registrations */}
         <div className="mt-16 space-y-6">
@@ -362,9 +335,14 @@ export default function MyApplyPage() {
                         <div className="text-sm text-slate-600">Team: {r.teamInfo.teamName}</div>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {fmtDate(r.createdAt)}
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs text-slate-500 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {fmtDate(r.createdAt)}
+                      </div>
+                      <Link href={`/events/${r.event}/submission`} onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" variant="outline">Open submission</Button>
+                      </Link>
                     </div>
                   </summary>
                   <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">

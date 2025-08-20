@@ -36,6 +36,9 @@ export default function EventsPage() {
   const [initialized, setInitialized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [authedEmail, setAuthedEmail] = useState<string | null>(null)
+  const [registeredEventIds, setRegisteredEventIds] = useState<Set<string>>(new Set())
+  const [showRegisteredOnly, setShowRegisteredOnly] = useState(false)
   const router = useRouter()
   
 
@@ -51,8 +54,10 @@ export default function EventsPage() {
             const me = await meRes.json()
             const r = me?.user?.role || null
             const id = me?.user?._id || null
+            const em = me?.user?.email || null
             setRole(r)
             setUserId(id)
+            setAuthedEmail(em)
             if (r === 'organizer') setView('mine')
           }
         }
@@ -87,6 +92,27 @@ export default function EventsPage() {
     if (view === 'mine' && !userId) return // wait for userId when organizer view
     loadEvents()
   }, [view, userId, initialized])
+
+  // Load participant registrations to determine which events are already registered
+  useEffect(() => {
+    const loadRegs = async () => {
+      try {
+        if (!authedEmail) { setRegisteredEventIds(new Set()); return }
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(authedEmail)}`, { credentials: 'include' })
+        const data = await res.json().catch(() => ({}))
+        const regs = Array.isArray(data?.registrations) ? data.registrations : []
+        const ids = new Set<string>()
+        for (const r of regs) {
+          if (r?.event) ids.add(String(r.event))
+        }
+        setRegisteredEventIds(ids)
+      } catch {
+        setRegisteredEventIds(new Set())
+      }
+    }
+    loadRegs()
+  }, [authedEmail])
 
   
 
@@ -135,6 +161,10 @@ export default function EventsPage() {
     return computeStatus(ev) === stageFilter
   });
 
+  const finalEvents = showRegisteredOnly
+    ? filteredEvents.filter((ev) => registeredEventIds.has(ev._id))
+    : filteredEvents
+
   return (
     <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
@@ -173,6 +203,18 @@ export default function EventsPage() {
               </Button>
             ))}
           </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={showRegisteredOnly ? 'default' : 'outline'}
+              className={showRegisteredOnly ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
+              onClick={() => setShowRegisteredOnly((v) => !v)}
+              disabled={!authedEmail}
+              title={authedEmail ? 'Show only events you have registered for' : 'Login required to filter by registered'}
+            >
+              Registered
+            </Button>
+          </div>
           {/* Organizer view toggle removed as requested */}
         </div>
 
@@ -182,10 +224,10 @@ export default function EventsPage() {
           <div className="text-center text-red-600">{error}</div>
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
-            {filteredEvents.length === 0 && (
+            {finalEvents.length === 0 && (
               <div className="col-span-full text-center text-slate-600">No events found for this filter.</div>
             )}
-            {filteredEvents.length > 0 && filteredEvents.map((ev) => (
+            {finalEvents.length > 0 && finalEvents.map((ev) => (
                 <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                   <CardHeader>
                   {ev.bannerUrl && (
@@ -228,24 +270,30 @@ export default function EventsPage() {
                 </CardHeader>
                 <CardContent className="flex gap-3">
                   {role !== "organizer" && (
-                    <Button
-                      size="sm"
-                      className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
-                      onClick={() => {
-                        try {
-                          const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-                          if (!token) {
+                    registeredEventIds.has(ev._id) ? (
+                      <Button size="sm" variant="outline" disabled>
+                        Registered
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                        onClick={() => {
+                          try {
+                            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                            if (!token) {
+                              router.push(`/auth/login?next=${encodeURIComponent(`/events/${ev._id}/register`)}`)
+                              return
+                            }
+                            router.push(`/events/${ev._id}/register`)
+                          } catch {
                             router.push(`/auth/login?next=${encodeURIComponent(`/events/${ev._id}/register`)}`)
-                            return
                           }
-                          router.push(`/events/${ev._id}/register`)
-                        } catch {
-                          router.push(`/auth/login?next=${encodeURIComponent(`/events/${ev._id}/register`)}`)
-                        }
-                      }}
-                    >
-                      Register
-                    </Button>
+                        }}
+                      >
+                        Register
+                      </Button>
+                    )
                   )}
                   {/* Removed Organizer 'View Teams' link */}
                   <Button asChild size="sm" variant="outline" className="transition-colors">
