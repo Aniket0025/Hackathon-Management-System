@@ -204,7 +204,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
       setNotifItems((prev) => prev.map((n) => ({ ...n, read: true })))
     }
   }
-  const clearAll = () => setNotifItems([])
+  const clearRead = () => setNotifItems((prev) => prev.filter((n) => !n.read))
 
   const openNotification = async (n: Notif) => {
     setSelectedNotif(n)
@@ -323,8 +323,8 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                   {notifItems.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="justify-center text-red-600" onClick={clearAll}>
-                        Clear all
+                      <DropdownMenuItem className="justify-center text-red-600" onClick={clearRead}>
+                        Clear read
                       </DropdownMenuItem>
                     </>
                   )}

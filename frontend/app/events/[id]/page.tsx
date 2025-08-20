@@ -51,6 +51,8 @@ export default function EventDetailsPage() {
   const [topTeams, setTopTeams] = useState<Array<{ _id: string; name: string; score?: number }>>([])
   const [teamsError, setTeamsError] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [authedEmail, setAuthedEmail] = useState<string | null>(null)
+  const [isRegisteredForThis, setIsRegisteredForThis] = useState<boolean>(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -94,7 +96,10 @@ export default function EventDetailsPage() {
         const meRes = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
         if (meRes.ok) {
           const me = await meRes.json().catch(() => ({}))
-          setRole(me?.user?.role || null)
+          const r = me?.user?.role || null
+          const em = me?.user?.email || null
+          setRole(r)
+          setAuthedEmail(em)
         }
       } catch {
         // ignore errors
@@ -102,6 +107,24 @@ export default function EventDetailsPage() {
     }
     loadRole()
   }, [])
+
+  // Determine if current user is already registered for this event
+  useEffect(() => {
+    const checkRegistration = async () => {
+      try {
+        if (!authedEmail || !id) { setIsRegisteredForThis(false); return }
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/registrations/mine?full=true&email=${encodeURIComponent(authedEmail)}`, { credentials: 'include' })
+        const data = await res.json().catch(() => ({}))
+        const regs = Array.isArray(data?.registrations) ? data.registrations : []
+        const found = regs.some((r: any) => String(r?.event) === String(id))
+        setIsRegisteredForThis(found)
+      } catch {
+        setIsRegisteredForThis(false)
+      }
+    }
+    checkRegistration()
+  }, [authedEmail, id])
 
   // Load top teams for this event
   useEffect(() => {
@@ -393,24 +416,28 @@ export default function EventDetailsPage() {
             {/* Actions at the very end */}
             <div className="pt-6 flex flex-col sm:flex-row gap-3">
               {role !== 'organizer' ? (
-                <Button
-                  className="bg-cyan-600 hover:bg-cyan-700 transition-colors shadow-sm"
-                  onClick={() => {
-                    try {
-                      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-                      const nextUrl = `/events/${event._id}/register`
-                      if (!token) {
-                        router.push(`/auth/login?next=${encodeURIComponent(nextUrl)}`)
-                        return
+                isRegisteredForThis ? (
+                  <Button variant="outline" disabled>Registered</Button>
+                ) : (
+                  <Button
+                    className="bg-cyan-600 hover:bg-cyan-700 transition-colors shadow-sm"
+                    onClick={() => {
+                      try {
+                        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                        const nextUrl = `/events/${event._id}/register`
+                        if (!token) {
+                          router.push(`/auth/login?next=${encodeURIComponent(nextUrl)}`)
+                          return
+                        }
+                        router.push(nextUrl)
+                      } catch {
+                        router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}/register`)}`)
                       }
-                      router.push(nextUrl)
-                    } catch {
-                      router.push(`/auth/login?next=${encodeURIComponent(`/events/${event._id}/register`)}`)
-                    }
-                  }}
-                >
-                  Register
-                </Button>
+                    }}
+                  >
+                    Register
+                  </Button>
+                )
               ) : (
                 <div className="flex gap-3">
 
