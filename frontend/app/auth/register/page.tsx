@@ -213,7 +213,7 @@ export default function RegisterPage() {
                       <h3 className="text-lg font-semibold">Join as Participant</h3>
                       <p className="text-sm text-muted-foreground">Showcase your skills and collaborate with innovators</p>
                       <div className="flex justify-center pt-1">
-                        <Button variant="secondary" className="bg-violet-600 hover:bg-violet-700 text-white">
+                        <Button variant="cta" className="rounded-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg">
                           <UsersIcon className="mr-2 h-4 w-4" /> Individual & Teams
                         </Button>
                       </div>
@@ -224,7 +224,7 @@ export default function RegisterPage() {
                       <h3 className="text-lg font-semibold">Join as Organizer</h3>
                       <p className="text-sm text-muted-foreground">Create and manage amazing innovation events</p>
                       <div className="flex justify-center pt-1">
-                        <Button variant="secondary" className="bg-emerald-700 hover:bg-emerald-800 text-white">
+                        <Button variant="cta" className="rounded-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white shadow-md hover:shadow-lg">
                           <CalendarIcon className="mr-2 h-4 w-4" /> Event Management
                         </Button>
                       </div>
@@ -235,7 +235,7 @@ export default function RegisterPage() {
                       <h3 className="text-lg font-semibold">Join as Judge</h3>
                       <p className="text-sm text-muted-foreground">Evaluate projects and provide valuable feedback</p>
                       <div className="flex justify-center pt-1">
-                        <Button variant="secondary" className="bg-slate-800 hover:bg-slate-900 text-white">
+                        <Button variant="cta" className="rounded-full px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white shadow-md hover:shadow-lg">
                           <Trophy className="mr-2 h-4 w-4" /> Expert Evaluation
                         </Button>
                       </div>
@@ -309,7 +309,7 @@ export default function RegisterPage() {
                   <Button
                     type="button"
                     variant="cta"
-                    className="ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-90 disabled:hover:translate-y-0"
+                    className="ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-100 disabled:brightness-95 disabled:saturate-75 disabled:hover:translate-y-0"
                     onClick={handleVerifyOtp}
                     disabled={otpLoading || !otp || !!verificationToken}
                   >
@@ -378,7 +378,7 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 variant="cta"
-                className="w-full font-serif ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-90 disabled:hover:translate-y-0"
+                className="w-full font-serif ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-100 disabled:brightness-95 disabled:saturate-75 disabled:hover:translate-y-0"
                 disabled={isLoading || !verificationToken}
               >
                 {isLoading ? "Creating account..." : (verificationToken ? "Create Account" : "Verify Email to Continue")}

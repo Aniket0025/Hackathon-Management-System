@@ -32,6 +32,9 @@ export default function OrganizerAssignJudgesPage() {
   const [assigned, setAssigned] = useState<Array<{ id: string; judgeId: string | null; name: string; email: string; eventTitle: string }>>([])
 
   const isOrganizer = role === "organizer"
+  const canSubmit = useMemo(() => {
+    return isOrganizer && !!form.name && !!form.email && !!form.password
+  }, [isOrganizer, form])
 
   async function fetchAssignments() {
     try {
@@ -130,23 +133,23 @@ export default function OrganizerAssignJudgesPage() {
             <CardDescription>Provide email and temporary password. Judges will sign in with these credentials.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={onSubmit} className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm text-slate-600 mb-1">Full Name</label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" className="bg-white" />
               </div>
               <div>
                 <label className="block text-sm text-slate-600 mb-1">Email</label>
                 <div className="relative">
                   <Mail className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input type="email" required className="pl-9" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="judge@example.com" />
+                  <Input type="email" required className="pl-9 bg-white" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="judge@example.com" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm text-slate-600 mb-1">Temporary Password</label>
                 <div className="relative">
                   <Lock className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <PasswordInput required className="pl-9" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
+                  <PasswordInput required className="pl-9 bg-white" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
                 </div>
               </div>
               <div>
@@ -165,10 +168,17 @@ export default function OrganizerAssignJudgesPage() {
                   </select>
                 </div>
               </div>
-              <div className="md:col-span-2">
-                <Button type="submit" disabled={loading || !isOrganizer} className="bg-gradient-to-r from-cyan-600 to-blue-600">
+              <div className="md:col-span-2 flex items-center gap-3 pt-2">
+                <Button
+                  type="submit"
+                  disabled={!canSubmit || loading}
+                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-md rounded-md disabled:opacity-100 disabled:from-slate-300 disabled:to-slate-400 disabled:text-white disabled:cursor-not-allowed"
+                >
                   {loading ? "Assigning..." : "Create & Assign"}
                 </Button>
+                {!canSubmit && (
+                  <span className="text-xs text-slate-500">Fill name, email, and password to enable</span>
+                )}
               </div>
             </form>
           </CardContent>
