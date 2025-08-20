@@ -24,7 +24,7 @@ These are **test accounts only** and should be used for demonstration purposes.
 | Email | Password | Role |
 |-------|----------|------|
 | aniketyadav25012005@gmail.com | 123456789 | Organizer |
-| chaitnyauthale5@gmail.com     | 123456789 | Organizer |
+
 
 ---
 
