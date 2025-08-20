@@ -101,6 +101,13 @@ export default function SubmissionsPage() {
   const [teamName, setTeamName] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState<string | null>(null)
+  const [mySubmission, setMySubmission] = useState<null | {
+    _id: string
+    status?: string
+    score?: number
+    feedback?: string
+    team?: { name?: string }
+  }>(null)
 
   useEffect(() => {
     const run = async () => {
@@ -191,6 +198,27 @@ export default function SubmissionsPage() {
     if (registrations.length) fetchEventBanners()
   }, [registrations, eventsById])
 
+  // Load my submission for this event to display review info
+  useEffect(() => {
+    const loadMySubmission = async () => {
+      try {
+        setMySubmission(null)
+        if (!eventId || !teamName) return
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        const res = await fetch(`${base}/api/submissions?eventId=${encodeURIComponent(String(eventId))}`)
+        const data = await res.json().catch(() => ({} as any))
+        if (!res.ok) throw new Error(data?.message || 'Failed to load submissions')
+        const list = Array.isArray(data?.submissions) ? data.submissions : []
+        // pick submission for my team
+        const mine = list.find((s: any) => (s?.team?.name || '').toLowerCase() === teamName.toLowerCase()) || null
+        setMySubmission(mine)
+      } catch {
+        // ignore; panel will not show
+      }
+    }
+    loadMySubmission()
+  }, [eventId, teamName])
+
   const canSubmit = Boolean(eventId && title.trim() && teamName.trim())
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -258,6 +286,41 @@ export default function SubmissionsPage() {
             <CardDescription>Submit your project details for the selected event.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Reviewed panel (if available) */}
+            {eventId && mySubmission && (
+              <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-white/80">{mySubmission.team?.name || teamName}</Badge>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white text-emerald-700 border border-emerald-200">{mySubmission.status || 'submitted'}</span>
+                  </div>
+                  {typeof mySubmission.score === 'number' && (
+                    <div className="text-sm font-semibold text-emerald-800">Score: {mySubmission.score}</div>
+                  )}
+                </div>
+                {mySubmission.status === 'reviewed' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-1">
+                      <div className="text-xs uppercase tracking-wide text-emerald-800/80 mb-1">Judge Feedback</div>
+                      <div className="text-sm text-emerald-900 whitespace-pre-wrap break-words">{mySubmission.feedback || '—'}</div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <div className="text-xs uppercase tracking-wide text-emerald-800/80 mb-1">Key Points</div>
+                      <ul className="list-disc pl-5 space-y-1 text-sm text-emerald-900">
+                        {(() => {
+                          const fb = (mySubmission.feedback || '').trim()
+                          const lines = fb.includes('\n') ? fb.split('\n') : fb.split(/\.\s+/)
+                          const items = lines.filter(Boolean).slice(0, 5)
+                          return items.length ? items.map((l, i) => <li key={i}>{l.replace(/^[-*]\s*/, '')}</li>) : [<li key="np">No key points provided</li>]
+                        })()}
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-emerald-900">Your submission has been received and is currently under review.</div>
+                )}
+              </div>
+            )}
             {/* Helpful tips banner */}
             <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-3 text-sm text-emerald-800">
               <div className="font-medium mb-1">Tips for a great submission</div>
