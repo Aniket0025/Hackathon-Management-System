@@ -40,4 +40,27 @@ async function createSubmission(req, res, next) {
   }
 }
 
-module.exports = { listSubmissions, createSubmission };
+async function updateSubmissionScore(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { score, feedback } = req.body || {};
+    if (typeof score !== 'number' || score < 0 || score > 100) {
+      return res.status(400).json({ message: 'score must be a number between 0 and 100' });
+    }
+
+    const submission = await Submission.findByIdAndUpdate(
+      id,
+      { $set: { score, status: 'reviewed', ...(typeof feedback === 'string' ? { feedback } : {}) } },
+      { new: true }
+    ).populate('team', 'name');
+
+    if (!submission) return res.status(404).json({ message: 'submission not found' });
+
+    // Return updated submission (including feedback if set)
+    res.json({ submission });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listSubmissions, createSubmission, updateSubmissionScore };

@@ -342,6 +342,33 @@ export default function EventsPage() {
                   >
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
+                  {role !== "organizer" && role !== "judge" && registeredEventIds.has(ev._id) && (
+                    <Button asChild size="sm" variant="outline" className="transition-colors">
+                      <Link prefetch href={`/dashboard/participant/submissions?eventId=${ev._id}`}>
+                        View Submissions
+                      </Link>
+                    </Button>
+                  )}
+                  {role === "judge" && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="transition-colors"
+                        onClick={() => router.push(`/dashboard/judge/events/${ev._id}/submissions`)}
+                      >
+                        View Submissions
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="transition-colors"
+                        onClick={() => router.push(`/dashboard/judge/events/${ev._id}/scores`)}
+                      >
+                        Team Scores
+                      </Button>
+                    </>
+                  )}
                   
                 </CardContent>
               </Card>

@@ -10,6 +10,7 @@ const submissionSchema = new mongoose.Schema(
     docsUrl: { type: String },
     videoUrl: { type: String },
     score: { type: Number, default: 0 },
+    feedback: { type: String, default: "" },
     status: { type: String, enum: ['draft', 'submitted', 'reviewed'], default: 'draft' },
   },
   { timestamps: true }
