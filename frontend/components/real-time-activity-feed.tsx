@@ -1,10 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Trophy, Code, Zap, Clock, Star } from "lucide-react"
+import { SocketContext } from "@/components/realtime/socket-provider"
 
 interface Activity {
   id: string
@@ -17,69 +18,109 @@ interface Activity {
   color: string
 }
 
-export function RealTimeActivityFeed() {
+export function RealTimeActivityFeed({ active = true }: { active?: boolean }) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [isLive, setIsLive] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const generateActivity = (): Activity => {
-    const types = ["registration", "submission", "team_formed", "judging", "achievement"] as const
-    const users = ["Alex Chen", "Sarah Kim", "Marcus Johnson", "Elena Rodriguez", "David Park", "Maya Patel"]
-    const events = ["AI Innovation Challenge", "Blockchain Hackathon", "Climate Tech Summit", "FinTech Revolution"]
-    const actions = {
-      registration: ["joined the hackathon", "registered for the event", "signed up"],
-      submission: ["submitted their project", "uploaded final demo", "shared their solution"],
-      team_formed: ["formed a new team", 'joined team "Innovators"', 'created team "Code Warriors"'],
-      judging: ["received feedback", "scored 95/100", "advanced to finals"],
-      achievement: ["won first place", 'earned "Best Innovation" award', "completed all challenges"],
-    }
+  const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
 
-    const type = types[Math.floor(Math.random() * types.length)]
-    const iconMap = {
-      registration: Users,
-      submission: Code,
-      team_formed: Users,
-      judging: Trophy,
-      achievement: Star,
-    }
+  const iconFor = (t?: string) => {
+    const type = (t || "").toLowerCase()
+    if (type.includes("submission")) return Code
+    if (type.includes("team")) return Users
+    if (type.includes("judge") || type.includes("score") || type.includes("award")) return Trophy
+    if (type.includes("achiev") || type.includes("win")) return Star
+    if (type.includes("regist")) return Users
+    return Users
+  }
 
-    const colorMap = {
-      registration: "from-blue-500 to-cyan-500",
-      submission: "from-green-500 to-emerald-500",
-      team_formed: "from-purple-500 to-pink-500",
-      judging: "from-amber-500 to-orange-500",
-      achievement: "from-rose-500 to-red-500",
-    }
+  const colorFor = (t?: string) => {
+    const type = (t || "").toLowerCase()
+    if (type.includes("submission")) return "from-green-500 to-emerald-500"
+    if (type.includes("team")) return "from-purple-500 to-pink-500"
+    if (type.includes("judge") || type.includes("score") || type.includes("award")) return "from-amber-500 to-orange-500"
+    if (type.includes("achiev") || type.includes("win")) return "from-rose-500 to-red-500"
+    if (type.includes("regist")) return "from-blue-500 to-cyan-500"
+    return "from-slate-400 to-slate-500"
+  }
 
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      type,
-      user: users[Math.floor(Math.random() * users.length)],
-      action: actions[type][Math.floor(Math.random() * actions[type].length)],
-      timestamp: new Date(),
-      event: events[Math.floor(Math.random() * events.length)],
-      icon: iconMap[type],
-      color: colorMap[type],
+  // Maps backend payload flexibly to Activity interface
+  const mapItem = (item: any, idx: number): Activity => {
+    const id = item?._id || item?.id || `${item?.type || "activity"}-${item?.timestamp || Date.now()}-${idx}`
+    const type: Activity["type"] =
+      item?.type === "registration" || item?.type === "submission" || item?.type === "team_formed" || item?.type === "judging" || item?.type === "achievement"
+        ? item.type
+        : (String(item?.type || item?.category || "registration").toLowerCase().includes("team")
+            ? "team_formed"
+            : String(item?.type || "registration").toLowerCase().includes("subm")
+            ? "submission"
+            : String(item?.type || "registration").toLowerCase().includes("judge")
+            ? "judging"
+            : String(item?.type || "registration").toLowerCase().includes("achiev")
+            ? "achievement"
+            : "registration")
+    const user = item?.user?.name || item?.userName || item?.username || item?.user || "User"
+    const action = item?.action || item?.message || item?.description || "did something"
+    const event = item?.event?.name || item?.eventName || item?.event || undefined
+    const timestamp = new Date(item?.timestamp || item?.createdAt || Date.now())
+    const icon = iconFor(type)
+    const color = colorFor(type)
+    return { id, type, user, action, timestamp, event, icon, color }
+  }
+
+  const fetchActivities = async () => {
+    try {
+      setError(null)
+      const res = await fetch(`${base}/api/analytics/activity?limit=12`, { credentials: "include" })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json().catch(() => null)
+      const list = (json?.data || json?.activities || json || []) as any[]
+      const mapped = Array.isArray(list) ? list.map(mapItem) : []
+      setActivities(mapped)
+    } catch (e: any) {
+      setError(e?.message || "Failed to load activity")
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    // Initialize with some activities
-    const initialActivities = Array.from({ length: 5 }, generateActivity)
-    setActivities(initialActivities)
+    setIsLive(!!active)
+  }, [active])
 
-    // Add new activities every 3-8 seconds
-    const interval = setInterval(
-      () => {
-        if (isLive) {
-          const newActivity = generateActivity()
-          setActivities((prev) => [newActivity, ...prev.slice(0, 9)]) // Keep only 10 most recent
-        }
-      },
-      Math.random() * 5000 + 3000,
-    )
-
-    return () => clearInterval(interval)
+  useEffect(() => {
+    let poll: NodeJS.Timeout | null = null
+    fetchActivities()
+    // Poll every 10s as a safe fallback
+    poll = setInterval(() => {
+      if (isLive) fetchActivities()
+    }, 10000)
+    return () => {
+      if (poll) clearInterval(poll)
+    }
   }, [isLive])
+
+  // Socket subscriptions for push updates
+  const { socket } = useContext(SocketContext)
+  useEffect(() => {
+    if (!socket) return
+    const handler = (payload: any) => {
+      if (!isLive) return
+      const mapped = mapItem(payload, 0)
+      setActivities((prev) => [mapped, ...prev].slice(0, 20))
+    }
+    // Try multiple event names commonly used in backend
+    socket.on("activity:new", handler)
+    socket.on("analytics:activity", handler)
+    socket.on("activity", handler)
+    return () => {
+      socket.off("activity:new", handler)
+      socket.off("analytics:activity", handler)
+      socket.off("activity", handler)
+    }
+  }, [socket, isLive])
 
   const formatTimeAgo = (date: Date) => {
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
@@ -107,6 +148,15 @@ export function RealTimeActivityFeed() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+        {loading && (
+          <div className="p-4 text-sm text-muted-foreground">Loading live activity…</div>
+        )}
+        {error && !loading && (
+          <div className="p-4 text-sm text-red-600">{error}</div>
+        )}
+        {!loading && !error && activities.length === 0 && (
+          <div className="p-4 text-sm text-muted-foreground">No recent activity yet.</div>
+        )}
         {activities.map((activity, index) => (
           <div
             key={activity.id}

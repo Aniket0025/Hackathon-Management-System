@@ -217,8 +217,13 @@ export default function EventsPage() {
               <Button
                 key={key}
                 size="sm"
-                variant={stageFilter === key ? 'default' : 'outline'}
-                className={stageFilter === key ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
+                variant={stageFilter === key ? 'cta' : 'outline'}
+                className={
+                  `${stageFilter === key
+                    ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-600/40 shadow-2xl border border-emerald-400/60 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80'
+                    : 'bg-white text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400'} ` +
+                  'transform-gpu transition-all duration-300 will-change-transform hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(3deg)_translateY(-2px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
+                }
                 onClick={() => setStageFilter(key)}
               >
                 {key[0].toUpperCase() + key.slice(1)}
@@ -228,8 +233,13 @@ export default function EventsPage() {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant={showRegisteredOnly ? 'default' : 'outline'}
-              className={showRegisteredOnly ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
+              variant={showRegisteredOnly ? 'cta' : 'outline'}
+              className={
+                `${showRegisteredOnly
+                  ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-600/40 shadow-2xl border border-emerald-400/60 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80'
+                  : 'bg-white text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400'} ` +
+                'transform-gpu transition-all duration-300 will-change-transform hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-3deg)_translateY(-2px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
+              }
               onClick={() => setShowRegisteredOnly((v) => !v)}
               disabled={!authedEmail}
               title={authedEmail ? 'Show only events you have registered for' : 'Login required to filter by registered'}
@@ -250,8 +260,8 @@ export default function EventsPage() {
               <div className="col-span-full text-center text-slate-600">No events found for this filter.</div>
             )}
             {finalEvents.length > 0 && finalEvents.map((ev) => (
-                <Card key={ev._id} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader>
+              <Card key={ev._id} className="relative border border-slate-200 shadow-sm transition-all duration-300 transform-gpu will-change-transform hover:-translate-y-1 hover:shadow-2xl [transform:perspective(1200px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(1200px)_rotateX(2deg)_rotateY(-2deg)]">
+                <CardHeader className="relative">
                   {ev.bannerUrl && (
                     <div className="-mx-6 -mt-6 mb-3">
                       <img
@@ -293,13 +303,19 @@ export default function EventsPage() {
                 <CardContent className="flex gap-3">
                   {role !== "organizer" && role !== "judge" && (
                     registeredEventIds.has(ev._id) ? (
-                      <Button size="sm" variant="outline" disabled>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled
+                        className="bg-white text-slate-800 border-2 border-slate-300 hover:bg-white"
+                      >
                         Registered
                       </Button>
                     ) : (
                       <Button
                         size="sm"
-                        className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                        variant="cta"
+                        className="shadow-emerald-600/40 shadow-xl ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 transform-gpu transition-all duration-300 will-change-transform hover:-translate-y-0.5 hover:scale-[1.02]"
                         onClick={() => {
                           try {
                             const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -318,7 +334,12 @@ export default function EventsPage() {
                     )
                   )}
                   {/* Removed Organizer 'View Teams' link */}
-                  <Button asChild size="sm" variant="outline" className="transition-colors">
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="bg-white text-slate-800 border-2 border-slate-300 hover:border-slate-400 hover:bg-white transform-gpu transition-all duration-300 hover:-translate-y-0.5"
+                  >
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
                   

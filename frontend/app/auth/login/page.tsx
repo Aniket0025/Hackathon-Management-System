@@ -116,7 +116,12 @@ export default function LoginPage() {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full font-serif" disabled={isLoading}>
+              <Button
+                type="submit"
+                variant="cta"
+                className="w-full font-serif ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-90 disabled:hover:translate-y-0"
+                disabled={isLoading}
+              >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
@@ -130,7 +135,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full font-serif bg-transparent">
+            <Button
+              variant="outline"
+              className="w-full font-serif bg-white text-slate-900 hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 shadow-sm"
+            >
               <Github className="mr-2 h-4 w-4" />
               GitHub
             </Button>

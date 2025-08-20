@@ -439,7 +439,7 @@ export default function CommunityPage() {
               </div>
 
               <DialogFooter>
-                <Button onClick={submitPost} disabled={!canSubmit} className="bg-cyan-600 hover:bg-cyan-700 transition-colors">Publish</Button>
+                <Button onClick={submitPost} disabled={!canSubmit} variant="cta">Publish</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -456,10 +456,11 @@ export default function CommunityPage() {
               key={tab.key}
               onClick={() => setActiveSection(tab.key)}
               className={
-                `px-4 py-2 rounded-full text-sm font-medium transition-colors ` +
+                `px-4 py-2 rounded-full text-sm font-semibold transition-all transform-gpu will-change-transform ` +
                 (activeSection === tab.key
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200')
+                  ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-600/40 shadow-2xl ring-2 ring-emerald-300/70 hover:ring-emerald-400/80'
+                  : 'bg-white text-slate-800 border-2 border-slate-300 hover:border-slate-400') +
+                ' hover:-translate-y-0.5 hover:scale-[1.03] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
               }
             >
               {tab.label}
@@ -475,7 +476,7 @@ export default function CommunityPage() {
             {(role === 'organizer' || role === 'admin') ? (
               <Dialog open={annOpen} onOpenChange={setAnnOpen}>
                 <Button
-                  variant="outline"
+                  variant="cta"
                   onClick={() => {
                     try {
                       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -497,7 +498,7 @@ export default function CommunityPage() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button onClick={submitAnnouncement} disabled={annTitle.trim().length < 2 || annBody.trim().length < 2} className="bg-cyan-600 hover:bg-cyan-700">Publish</Button>
+                    <Button onClick={submitAnnouncement} disabled={annTitle.trim().length < 2 || annBody.trim().length < 2} variant="cta">Publish</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -545,7 +546,7 @@ export default function CommunityPage() {
             <h2 className="text-xl font-semibold text-slate-900">❓ Q&A</h2>
             <Dialog open={askOpen} onOpenChange={setAskOpen}>
               <Button
-                variant="outline"
+                variant="cta"
                 onClick={() => {
                   try {
                     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -564,7 +565,7 @@ export default function CommunityPage() {
                   <Input placeholder="Tags (comma separated)" value={qTags} onChange={(e) => setQTags(e.target.value)} />
                 </div>
                 <DialogFooter>
-                  <Button onClick={submitQuestion} disabled={qTitle.trim().length < 5 || qBody.trim().length < 5} className="bg-cyan-600 hover:bg-cyan-700">Post Question</Button>
+                  <Button onClick={submitQuestion} disabled={qTitle.trim().length < 5 || qBody.trim().length < 5} variant="cta">Post Question</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -608,7 +609,7 @@ export default function CommunityPage() {
                           size="sm"
                           onClick={() => submitAnswer(q.id)}
                           disabled={(answerInputs[q.id] || '').trim().length < 2}
-                          className="bg-cyan-600 hover:bg-cyan-700"
+                          variant="cta"
                         >Post Answer</Button>
                       </div>
                     </div>
@@ -650,7 +651,7 @@ export default function CommunityPage() {
             <div className="md:col-span-3">
               <div className="flex justify-end mb-4">
                 <Button
-                  className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                  variant="cta"
                   onClick={() => {
                     try {
                       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -689,9 +690,9 @@ export default function CommunityPage() {
                   {filtered.map((p) => (
                     <Card
                       key={p.id}
-                      className="border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm"
+                      className="relative border border-slate-200 shadow-sm bg-white/95 backdrop-blur-sm transition-all duration-300 transform-gpu will-change-transform hover:-translate-y-1 hover:shadow-2xl [transform:perspective(1200px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(1200px)_rotateX(2deg)_rotateY(-2deg)]"
                     >
-                      <CardHeader>
+                      <CardHeader className="relative">
                         <CardTitle>{p.title}</CardTitle>
                         <CardDescription>by {p.author}</CardDescription>
                       </CardHeader>
@@ -702,15 +703,15 @@ export default function CommunityPage() {
                         <div className="flex items-center justify-between">
                           <Badge
                             variant="secondary"
-                            className="bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs hover:bg-emerald-100/70 transition-colors inline-flex items-center"
+                            className="bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 transition-colors inline-flex items-center ring-1 ring-emerald-300/60"
                           >
                             <ThumbsUp className="w-3 h-3 mr-1" /> {p.likes} likes
                           </Badge>
                           <Button
                             size="sm"
-                            variant="default"
+                            variant="cta"
                             onClick={() => likePost(p.id)}
-                            className="shadow-xs hover:shadow-sm"
+                            className="shadow-emerald-600/40 hover:shadow-emerald-600/50 transform-gpu transition-all hover:-translate-y-0.5 active:translate-y-0"
                             disabled={likedPosts.has(p.id)}
                           >
                             <ThumbsUp className="w-4 h-4 mr-2" /> {likedPosts.has(p.id) ? "Liked" : "Like"}
@@ -725,7 +726,7 @@ export default function CommunityPage() {
 
             {/* Sidebar */}
             <div className="md:col-span-1 space-y-6">
-              <Card className="border border-slate-200 shadow-sm">
+              <Card className="relative border border-slate-200 shadow-sm transition-all duration-300 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
                 <CardHeader>
                   <CardTitle className="text-base">Community stats</CardTitle>
                   <CardDescription>Activity overview</CardDescription>
