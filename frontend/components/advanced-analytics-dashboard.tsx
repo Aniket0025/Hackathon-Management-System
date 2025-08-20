@@ -29,6 +29,7 @@ interface AnalyticsData {
 }
 
 export default function AdvancedAnalyticsDashboard() {
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
   const [realTimeData, setRealTimeData] = useState({
     activeUsers: 0,
     submissions: 0,
@@ -49,9 +50,9 @@ export default function AdvancedAnalyticsDashboard() {
       setError(null)
       
       const [dashboardResponse, activityResponse, skillsResponse] = await Promise.all([
-        fetch('http://localhost:4000/api/analytics/dashboard'),
-        fetch('http://localhost:4000/api/analytics/activity?limit=5'),
-        fetch('http://localhost:4000/api/analytics/skills')
+        fetch(`${apiBase}/api/analytics/dashboard`),
+        fetch(`${apiBase}/api/analytics/activity?limit=5`),
+        fetch(`${apiBase}/api/analytics/skills`)
       ])
       
       if (dashboardResponse.ok) {

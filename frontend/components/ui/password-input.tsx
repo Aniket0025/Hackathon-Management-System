@@ -20,7 +20,7 @@ export function PasswordInput({ className, ...props }: PasswordInputProps) {
         type="button"
         aria-label={show ? "Hide password" : "Show password"}
         onClick={() => setShow((s) => !s)}
-        className="absolute inset-y-0 right-3 my-auto text-slate-500 hover:text-slate-700"
+        className="absolute inset-y-0 right-3 my-auto text-slate-500 hover:text-slate-700 cursor-pointer"
         tabIndex={-1}
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

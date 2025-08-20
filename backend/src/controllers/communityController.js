@@ -2,6 +2,7 @@ const Post = require('../models/Post');
 const Announcement = require('../models/Announcement');
 const Question = require('../models/Question');
 const { uploadBuffer } = require('../utils/cloudinary');
+const User = require('../models/User');
 
 async function listPosts(req, res, next) {
   try {
@@ -100,7 +101,36 @@ module.exports.uploadAnnouncementBanner = uploadAnnouncementBanner;
 async function listQuestions(req, res, next) {
   try {
     const qs = await Question.find({}).sort({ upvotes: -1, createdAt: -1 }).lean();
-    res.json({ questions: qs });
+
+    // Replace ObjectId-like author strings with user names for nicer UI
+    const objectIdRe = /^[a-fA-F0-9]{24}$/;
+    const ids = new Set();
+    for (const q of qs) {
+      if (typeof q.author === 'string' && objectIdRe.test(q.author)) ids.add(q.author);
+      if (Array.isArray(q.answers)) {
+        for (const a of q.answers) {
+          if (a && typeof a.author === 'string' && objectIdRe.test(a.author)) ids.add(a.author);
+        }
+      }
+    }
+    const idList = Array.from(ids);
+    let nameMap = new Map();
+    if (idList.length) {
+      const users = await User.find({ _id: { $in: idList } }).select('name email').lean();
+      for (const u of users) {
+        nameMap.set(String(u._id), u.name || (u.email ? String(u.email).split('@')[0] : 'User'));
+      }
+    }
+    const mapped = qs.map((q) => ({
+      ...q,
+      author: (typeof q.author === 'string' && nameMap.get(q.author)) || q.author,
+      answers: (q.answers || []).map((a) => ({
+        ...a,
+        author: (a && typeof a.author === 'string' && nameMap.get(a.author)) || a.author,
+      })),
+    }));
+
+    res.json({ questions: mapped });
   } catch (err) {
     next(err);
   }
@@ -115,7 +145,10 @@ async function createQuestion(req, res, next) {
     // derive author from request body or authenticated user
     let finalAuthor = (author && String(author).trim()) || null;
     if (!finalAuthor && req.user) {
-      finalAuthor = req.user.name || req.user.username || req.user.email || req.user.id || 'User';
+      try {
+        const u = await User.findById(req.user.id).select('name email').lean();
+        finalAuthor = (u && (u.name || (u.email ? String(u.email).split('@')[0] : null))) || req.user.id || 'User';
+      } catch { finalAuthor = req.user.id || 'User'; }
     }
     if (!finalAuthor) finalAuthor = 'Anonymous';
 
@@ -143,7 +176,10 @@ async function addAnswer(req, res, next) {
 
     let finalAuthor = (author && String(author).trim()) || null;
     if (!finalAuthor && req.user) {
-      finalAuthor = req.user.name || req.user.username || req.user.email || req.user.id || 'User';
+      try {
+        const u = await User.findById(req.user.id).select('name email').lean();
+        finalAuthor = (u && (u.name || (u.email ? String(u.email).split('@')[0] : null))) || req.user.id || 'User';
+      } catch { finalAuthor = req.user.id || 'User'; }
     }
     if (!finalAuthor) finalAuthor = 'Anonymous';
 
