@@ -50,14 +50,20 @@ interface RegistrationData {
     bio: string
     gender: "male" | "female" | "other" | "prefer_not_say" | ""
     instituteName: string
-    type: "college_student" | "professional" | "school_student" | "fresher" | "other" | ""
-    domain: "management" | "engineering" | "arts_science" | "medicine" | "law" | "other" | ""
+    type: "college_student" | "professional" | "fresher" | ""
     graduatingYear: "2026" | "2027" | "2028" | "2029" | ""
     courseDuration: "2" | "3" | "4" | "5" | ""
     differentlyAbled: "no" | "yes" | ""
     location: string
   }
-
+  payment?: {
+    status: 'paid' | 'free'
+    amount: number
+    currency: string
+    orderId?: string
+    paymentId?: string
+    signature?: string
+  }
   teamInfo: {
     teamName: string
     teamDescription: string
@@ -71,8 +77,7 @@ interface RegistrationData {
       phone: string
       gender: "male" | "female" | "other" | "prefer_not_say" | ""
       instituteName: string
-      type: "college_student" | "professional" | "school_student" | "fresher" | "other" | ""
-      domain: "management" | "engineering" | "arts_science" | "medicine" | "law" | "other" | ""
+      type: "college_student" | "professional" | "fresher" | ""
       bio: string
       graduatingYear: "2026" | "2027" | "2028" | "2029" | ""
       courseDuration: "2" | "3" | "4" | "5" | ""
@@ -102,7 +107,6 @@ const makeEmptyMember = (): RegistrationData["teamInfo"]["members"][number] => (
   gender: "",
   instituteName: "",
   type: "",
-  domain: "",
   bio: "",
   graduatingYear: "",
   courseDuration: "",
@@ -129,7 +133,6 @@ export default function EventRegistrationPage() {
       gender: "",
       instituteName: "",
       type: "",
-      domain: "",
       graduatingYear: "",
       courseDuration: "",
       differentlyAbled: "",
@@ -168,6 +171,17 @@ export default function EventRegistrationPage() {
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftMessage, setDraftMessage] = useState<string | null>(null)
+  // Payment state
+  const [payment, setPayment] = useState<{
+    required: boolean
+    amount: number
+    currency: string
+    status: 'unpaid' | 'paid' | 'free'
+    orderId?: string
+    paymentId?: string
+    signature?: string
+    verifying?: boolean
+  }>({ required: false, amount: 0, currency: 'INR', status: 'unpaid' })
 
   useEffect(() => {
     if (!id) return
@@ -178,14 +192,23 @@ export default function EventRegistrationPage() {
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.message || "Failed to load event")
         setEvent(data.event)
+        // Determine if payment is required based on event.fees
+        const fee = Number((data?.event as any)?.fees || 0)
+        if (fee > 0) {
+          setPayment((prev) => ({ ...prev, required: true, amount: fee, currency: 'INR', status: 'unpaid' }))
+        } else {
+          setPayment((prev) => ({ ...prev, required: false, amount: 0, currency: 'INR', status: 'free' }))
+        }
         // Gate: Only allow events created by an organizer (organizer field must exist)
         if (!data?.event?.organizer) {
           setError("Registration is only available for organizer-created events.")
         }
-        // Initialize default team size based on event config if present
+        // Initialize default team size
+        // If event is for individual participants, force team size = 1
+        const isIndividual = (data?.event?.participantType || '').toLowerCase() === 'individual'
         const minTS = (data?.event?.minTeamSize ?? data?.event?.minTeamMembers ?? 1) as number
         const normalizedMin = Math.max(1, Number(minTS) || 1)
-        const defaultTeamSize = normalizedMin
+        const defaultTeamSize = isIndividual ? 1 : normalizedMin
         setRegistrationData((prev) => {
           const members = prev.teamInfo.members && prev.teamInfo.members.length > 0
             ? prev.teamInfo.members.slice(0, defaultTeamSize)
@@ -230,14 +253,8 @@ export default function EventRegistrationPage() {
         }
         const normType = (v: any) => {
           const s = norm(v).toLowerCase().replaceAll(" ", "_")
-          const allowed = ["college_student","professional","school_student","fresher","other"] as const
+          const allowed = ["college_student","professional","fresher"] as const
           return (allowed as readonly string[]).includes(s) ? s : ""
-        }
-        const normDomain = (v: any) => {
-          const s = norm(v).toLowerCase()
-          if (s.includes("arts") && s.includes("science")) return "arts_science"
-          const map: Record<string,string> = { management:"management", engineering:"engineering", medicine:"medicine", law:"law", other:"other" }
-          return map[s] || ""
         }
         const normYear = (v: any) => {
           const s = norm(v)
@@ -268,7 +285,6 @@ export default function EventRegistrationPage() {
             // Dropdown fields if profile has them
             gender: (normGender((user as any).gender) as RegistrationData["personalInfo"]["gender"]) || prev.personalInfo.gender,
             type: (normType((user as any).participantType || (user as any).type) as RegistrationData["personalInfo"]["type"]) || prev.personalInfo.type,
-            domain: (normDomain((user as any).domain || (user as any).specialization) as RegistrationData["personalInfo"]["domain"]) || prev.personalInfo.domain,
             graduatingYear: (normYear((user as any).graduatingYear || (user as any).graduationYear) as RegistrationData["personalInfo"]["graduatingYear"]) || prev.personalInfo.graduatingYear,
             courseDuration: (normDuration((user as any).courseDuration || (user as any).courseDurationYears) as RegistrationData["personalInfo"]["courseDuration"]) || prev.personalInfo.courseDuration,
             differentlyAbled: (normDiffAbled((user as any).differentlyAbled || (user as any).differently_abled) as RegistrationData["personalInfo"]["differentlyAbled"]) || prev.personalInfo.differentlyAbled,
@@ -340,7 +356,7 @@ export default function EventRegistrationPage() {
   // Helper to detect if a member is empty
   const isEmptyMember = (m: RegistrationData["teamInfo"]["members"][number]) => {
     return !(
-      (m.firstName || m.lastName || m.email || m.phone || m.gender || m.instituteName || m.type || m.domain || m.bio || m.graduatingYear || m.courseDuration || m.differentlyAbled || m.location)
+      (m.firstName || m.lastName || m.email || m.phone || m.gender || m.instituteName || m.type || m.bio || m.graduatingYear || m.courseDuration || m.differentlyAbled || m.location)
     )
   }
 
@@ -350,7 +366,7 @@ export default function EventRegistrationPage() {
     if (!m0) return
     const p = registrationData.personalInfo
     const fields: Array<keyof RegistrationData["teamInfo"]["members"][number]> = [
-      "firstName","lastName","email","phone","gender","instituteName","type","domain","bio","graduatingYear","courseDuration","differentlyAbled","location",
+      "firstName","lastName","email","phone","gender","instituteName","type","bio","graduatingYear","courseDuration","differentlyAbled","location",
     ]
     let changed = false
     const next = { ...m0 }
@@ -389,10 +405,12 @@ export default function EventRegistrationPage() {
   // Keep team members array length in sync with selected team size
   const updateTeamSize = (size: number) => {
     setRegistrationData((prev) => {
+      const isIndividual = ((event as any)?.participantType || '').toLowerCase() === 'individual'
       const eventMin = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
       const eventMax = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? Math.max(1, Number(eventMin) || 1)
       const nextSizeRaw = Math.max(1, Math.floor(Number(size) || 1))
-      const nextSize = Math.min(Math.max(nextSizeRaw, Number(eventMin) || 1), Number(eventMax) || nextSizeRaw)
+      let nextSize = Math.min(Math.max(nextSizeRaw, Number(eventMin) || 1), Number(eventMax) || nextSizeRaw)
+      if (isIndividual) nextSize = 1
       let members = prev.teamInfo.members
       if (members.length < nextSize) {
         members = [...members, ...Array.from({ length: nextSize - members.length }, () => makeEmptyMember())]
@@ -509,7 +527,6 @@ export default function EventRegistrationPage() {
         gender: p.gender || "",
         instituteName: p.instituteName || "",
         type: p.type || "",
-        domain: p.domain || "",
         bio: p.bio || "",
         graduatingYear: p.graduatingYear || "",
         courseDuration: p.courseDuration || "",
@@ -548,8 +565,69 @@ export default function EventRegistrationPage() {
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePayNow = async () => {
+    try {
+      if (!id) throw new Error('Invalid event')
+      setSubmitError(null)
+      setIsLoading(true)
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      // Create order from backend using actual event fee
+      const res = await fetch(`${base}/api/payments/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: id })
+      })
+      const data = await res.json().catch(() => ({} as any))
+      if (!res.ok) throw new Error(data?.message || 'Failed to create payment order')
+
+      // If free event
+      if (data?.free) {
+        setPayment({ required: false, amount: 0, currency: 'INR', status: 'free' })
+        return
+      }
+      // Simulated payment: immediately call verify in mock mode
+      try {
+        setPayment((p) => ({ ...p, verifying: true }))
+        const verifyRes = await fetch(`${base}/api/payments/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: data?.order?.id,
+            paymentId: `pay_mock_${Date.now()}`,
+            signature: `sig_mock_${Date.now()}`,
+          }),
+        })
+        const verifyData = await verifyRes.json().catch(() => ({} as any))
+        if (!verifyRes.ok || !verifyData?.verified) throw new Error(verifyData?.message || 'Payment verification failed')
+
+        setPayment({
+          required: true,
+          amount: (data?.amount || 0) / 100,
+          currency: data?.currency || 'INR',
+          status: 'paid',
+          orderId: data?.order?.id,
+          paymentId: `pay_mock_${Date.now()}`,
+          signature: `sig_mock_${Date.now()}`,
+          verifying: false,
+        })
+      } catch (e: any) {
+        setSubmitError(e?.message || 'Payment verification failed')
+        setPayment((p) => ({ ...p, verifying: false }))
+      }
+    } catch (e: any) {
+      setSubmitError(e?.message || 'Payment failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    // Guard: only proceed if the submitter is the intended submit button
+    const submitterId = (e as any)?.nativeEvent?.submitter?.id as string | undefined
+    if (submitterId !== 'submit-register') {
+      return
+    }
     setSubmitError(null)
     setIsLoading(true)
     try {
@@ -573,14 +651,28 @@ export default function EventRegistrationPage() {
           gender: pi.gender || (m0.gender || ""),
           instituteName: pi.instituteName || (m0.instituteName || ""),
           type: pi.type || (m0.type || ""),
-          domain: pi.domain || (m0.domain || ""),
           graduatingYear: pi.graduatingYear || (m0.graduatingYear || ""),
           courseDuration: pi.courseDuration || (m0.courseDuration || ""),
           differentlyAbled: pi.differentlyAbled || (m0.differentlyAbled || ""),
           location: pi.location || (m0.location || ""),
         }
       })()
-      const payload = { ...registrationData, personalInfo: derivedPI }
+      const payload = {
+        ...registrationData,
+        personalInfo: derivedPI,
+        payment: payment.status === 'paid'
+          ? {
+              status: 'paid',
+              amount: payment.amount,
+              currency: payment.currency,
+              orderId: payment.orderId,
+              paymentId: payment.paymentId,
+              signature: payment.signature,
+            }
+          : payment.status === 'free'
+          ? { status: 'free', amount: 0, currency: 'INR' }
+          : undefined,
+      }
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       const res = await fetch(`${base}/api/events/${id}/register`, {
         method: "POST",
@@ -678,7 +770,10 @@ export default function EventRegistrationPage() {
       agreements.codeOfConductAccepted &&
       agreements.dataProcessingAccepted
 
-    return Boolean(teamMetaValid && membersValid && personalInfoValid && agreementsValid)
+    const baseValid = Boolean(teamMetaValid && membersValid && personalInfoValid && agreementsValid)
+    const requiresPayment = Number((event as any)?.fees || 0) > 0
+    const paidOrFree = payment.status === 'paid' || payment.status === 'free'
+    return Boolean(baseValid && (!requiresPayment || paidOrFree))
   }
 
   const formInvalidReason = () => {
@@ -708,12 +803,6 @@ export default function EventRegistrationPage() {
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" size="sm" asChild className="mb-4">
-            <Link href={`/events/${id}`}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Event
-            </Link>
-          </Button>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground font-sans mb-2">Register for Event</h1>
             {loading ? (
@@ -747,332 +836,271 @@ export default function EventRegistrationPage() {
           </div>
         </div>
 
-        {submitError && (
-          <div className="mb-4 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-sm">
-            {submitError}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Team Information - moved to top */}
-          {registrationData.registrationType === "team" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-sans">
-                  <Users className="w-5 h-5" />
-                  Team Information
-                </CardTitle>
-                <CardDescription className="font-serif">Set up your team details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Team Size (from event config if available) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <Label className="font-serif">Team Size</Label>
-                    <Select
-                      value={(registrationData.teamInfo.teamSize ?? "").toString()}
-                      onValueChange={(v) => updateTeamSize(parseInt(v))}
-                    >
-                      <SelectTrigger className="font-serif">
-                        <SelectValue placeholder="Select team size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(() => {
-                          const minTS = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
-                          const maxTS = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? 6
-                          const min = Math.max(1, Number(minTS) || 1)
-                          const max = Math.max(min, Number(maxTS) || min)
-                          const arr = Array.from({ length: max - min + 1 }, (_, i) => i + min)
-                          return arr.map((n) => (
-                            <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
-                          ))
-                        })()}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Team Information - moved to top */}
+        {registrationData.registrationType === "team" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-sans">
+                <Users className="w-5 h-5" />
+                Team Information
+              </CardTitle>
+              <CardDescription className="font-serif">Set up your team details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Team Size (from event config if available) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="teamName" className="font-serif">
-                    Team Name *
-                  </Label>
-                  <Input
-                    id="teamName"
-                    placeholder="Enter your team name"
-                    value={registrationData.teamInfo.teamName}
-                    onChange={(e) => updateTeamInfo("teamName", e.target.value)}
-                    className="font-serif"
-                    required={registrationData.registrationType === "team"}
-                  />
+                  <Label className="font-serif">Team Size</Label>
+                  <Select
+                    value={(registrationData.teamInfo.teamSize ?? "").toString()}
+                    onValueChange={(v) => updateTeamSize(parseInt(v))}
+                    disabled={(event as any)?.participantType?.toLowerCase?.() === 'individual'}
+                  >
+                    <SelectTrigger className="font-serif" disabled={(event as any)?.participantType?.toLowerCase?.() === 'individual'}>
+                      <SelectValue placeholder="Select team size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const isIndividual = ((event as any)?.participantType || '').toLowerCase() === 'individual'
+                        if (isIndividual) {
+                          return <SelectItem value="1">1</SelectItem>
+                        }
+                        const minTS = (event as any)?.minTeamSize ?? (event as any)?.minTeamMembers ?? 1
+                        const maxTS = (event as any)?.maxTeamSize ?? (event as any)?.maxTeamMembers ?? (event as any)?.teamSize ?? 6
+                        const min = Math.max(1, Number(minTS) || 1)
+                        const max = Math.max(min, Number(maxTS) || min)
+                        const arr = Array.from({ length: max - min + 1 }, (_, i) => i + min)
+                        return arr.map((n) => (
+                          <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                        ))
+                      })()}
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="teamDescription" className="font-serif">
-                    Team Description
-                  </Label>
-                  <Textarea
-                    id="teamDescription"
-                    placeholder="Describe your team's vision, goals, and approach..."
-                    value={registrationData.teamInfo.teamDescription}
-                    onChange={(e) => updateTeamInfo("teamDescription", e.target.value)}
-                    className="min-h-[100px] font-serif"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="teamName" className="font-serif">
+                  Team Name *
+                </Label>
+                <Input
+                  id="teamName"
+                  placeholder="Enter your team name"
+                  value={registrationData.teamInfo.teamName}
+                  onChange={(e) => updateTeamInfo("teamName", e.target.value)}
+                  className="font-serif"
+                  required={registrationData.registrationType === "team"}
+                />
+              </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="lookingForMembers"
-                    checked={registrationData.teamInfo.lookingForMembers}
-                    onCheckedChange={(checked) => updateTeamInfo("lookingForMembers", checked)}
-                  />
-                  <Label htmlFor="lookingForMembers" className="font-serif">
-                    We're looking for additional team members
-                  </Label>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="teamDescription" className="font-serif">
+                  Team Description
+                </Label>
+                <Textarea
+                  id="teamDescription"
+                  placeholder="Describe your team's vision, goals, and approach..."
+                  value={registrationData.teamInfo.teamDescription}
+                  onChange={(e) => updateTeamInfo("teamDescription", e.target.value)}
+                  className="min-h-[100px] font-serif"
+                />
+              </div>
 
-                {registrationData.teamInfo.lookingForMembers && (
-                  <div className="space-y-4">
-                    <Label className="font-serif">Desired Skills</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add a skill (e.g., React, Python, UI/UX)"
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        className="font-serif"
-                        onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                      />
-                      <Button type="button" onClick={addSkill}>
-                        Add
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {registrationData.teamInfo.desiredSkills.map((skill, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                          {skill}
-                          <button type="button" onClick={() => removeSkill(index)} className="ml-1">
-                            ×
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Team members list and editor */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-serif">Team Members</Label>
-                    <div className="flex gap-2">
-                      {registrationData.teamInfo.members.length === 0 && (
-                        <Button type="button" onClick={addMeAsMember1} variant="outline">Add Me as Member 1</Button>
-                      )}
+              {/* Looking for members UI removed per request */}
+              {/* Team members list and editor */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="font-serif">Team Members</Label>
+                  <div className="flex gap-2">
+                    {registrationData.teamInfo.members.length === 0 && (
+                      <Button type="button" onClick={addMeAsMember1} variant="outline">Add Me as Member 1</Button>
+                    )}
+                    {((event as any)?.participantType || '').toLowerCase() !== 'individual' && !atMaxMembers() && (
                       <Button
                         type="button"
                         onClick={addMember}
                         variant="secondary"
-                        disabled={atMaxMembers()}
-                        aria-disabled={atMaxMembers()}
-                        title={atMaxMembers() ? "Maximum team size reached" : "Add a new team member"}
+                        title="Add a new team member"
                       >
                         Add Member
                       </Button>
-                    </div>
-                  </div>
-                  {atMaxMembers() && (
-                    <p className="text-xs text-muted-foreground">Maximum team size reached for this event.</p>
-                  )}
-                  {registrationData.teamInfo.members.length === 0 && (
-                    <div className="text-sm text-muted-foreground">Add members and then click a member to edit their details.</div>
-                  )}
-                  <div className="space-y-2">
-                    {registrationData.teamInfo.members.map((m, idx) => {
-                      const name = `${m.firstName || ""} ${m.lastName || ""}`.trim() || `Member ${idx + 1}`
-                      const phone = m.phone || "—"
-                      const initial = (m.firstName || m.lastName || `${idx + 1}`).trim().charAt(0).toUpperCase()
-                      return (
-                        <div key={idx} className={`flex items-center justify-between rounded-md border px-3 py-2 ${idx===0?"bg-emerald-50":"bg-background"}`}>
-                          <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => setEditingMemberIndex(idx)}>
-                            <div className={`h-9 w-9 rounded-full flex items-center justify-center border ${idx===0?"border-emerald-400":"border-muted"} bg-background font-medium`}>{initial}</div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-sans font-medium">{name}</span>
-                                {idx===0 && (
-                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800"><Crown className="w-3 h-3"/> Team Leader</span>
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground font-serif">{phone}</div>
-                            </div>
-                          </button>
-                          <div className="flex items-center gap-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button type="button" size="icon" variant="outline" aria-label="Actions">
-                                  <Ellipsis className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openInviteForMember(idx)}>
-                                  <Mail className="w-4 h-4 mr-2" /> Invite
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setEditingMemberIndex(idx)}>
-                                  <Pencil className="w-4 h-4 mr-2" /> Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => removeMember(idx)} className="text-red-600 focus:text-red-700">
-                                  <Trash2 className="w-4 h-4 mr-2" /> Remove
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      )
-                    })}
+                    )}
                   </div>
                 </div>
 
-                {/* Member edit dialog */}
-                <Dialog open={editingMemberIndex !== null} onOpenChange={(open) => !open && setEditingMemberIndex(null)}>
-                  <DialogContent className="max-w-2xl">
-                    {editingMemberIndex !== null && (
-                      <>
-                        <DialogHeader>
-                          <DialogTitle className="font-sans">Edit Member {editingMemberIndex + 1}</DialogTitle>
-                          <DialogDescription className="font-serif">Update the member details and close the dialog.</DialogDescription>
-                        </DialogHeader>
-                        {(() => { const idx = editingMemberIndex; const m = registrationData.teamInfo.members[idx]; return (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">First Name</Label>
-                                <Input value={m.firstName} onChange={(e) => updateMember(idx, "firstName", e.target.value)} className="font-serif" />
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Last Name</Label>
-                                <Input value={m.lastName} onChange={(e) => updateMember(idx, "lastName", e.target.value)} className="font-serif" />
-                              </div>
+                {atMaxMembers() && (
+                  <p className="text-xs text-muted-foreground">Maximum team size reached for this event.</p>
+                )}
+                {registrationData.teamInfo.members.length === 0 && (
+                  <div className="text-sm text-muted-foreground">Add members and then click a member to edit their details.</div>
+                )}
+
+                <div className="space-y-2">
+                  {registrationData.teamInfo.members.map((m, idx) => {
+                    if (!m) return null
+                    const name = `${m.firstName || ""} ${m.lastName || ""}`.trim() || `Member ${idx + 1}`
+                    const phone = m.phone || "—"
+                    const initial = (m.firstName || m.lastName || `${idx + 1}`).trim().charAt(0).toUpperCase()
+                    return (
+                      <div key={idx} className={`flex items-center justify-between rounded-md border px-3 py-2 ${idx===0?"bg-emerald-50":"bg-background"}`}>
+                        <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => setEditingMemberIndex(idx)}>
+                          <div className={`h-9 w-9 rounded-full flex items-center justify-center border ${idx===0?"border-emerald-400":"border-muted"} bg-background font-medium`}>{initial}</div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-sans font-medium">{name}</span>
+                              {idx===0 && (
+                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800"><Crown className="w-3 h-3"/> Team Leader</span>
+                              )}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">Email</Label>
-                                <Input type="email" value={m.email} onChange={(e) => updateMember(idx, "email", e.target.value)} className="font-serif" />
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Mobile</Label>
-                                <Input type="tel" value={m.phone} onChange={(e) => updateMember(idx, "phone", e.target.value)} className="font-serif" />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">Gender</Label>
-                                <Select value={m.gender || undefined} onValueChange={(v) => updateMember(idx, "gender", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="male">Male</SelectItem>
-                                    <SelectItem value="female">Female</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                    <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Institute Name</Label>
-                                <Input value={m.instituteName} onChange={(e) => updateMember(idx, "instituteName", e.target.value)} className="font-serif" />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">Type</Label>
-                                <Select value={m.type || undefined} onValueChange={(v) => updateMember(idx, "type", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="college_student">College Student</SelectItem>
-                                    <SelectItem value="professional">Professional</SelectItem>
-                                    <SelectItem value="school_student">School Student</SelectItem>
-                                    <SelectItem value="fresher">Fresher</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Domain</Label>
-                                <Select value={m.domain || undefined} onValueChange={(v) => updateMember(idx, "domain", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select domain" /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="management">Management</SelectItem>
-                                    <SelectItem value="engineering">Engineering</SelectItem>
-                                    <SelectItem value="arts_science">Arts & Science</SelectItem>
-                                    <SelectItem value="medicine">Medicine</SelectItem>
-                                    <SelectItem value="law">Law</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="font-serif">Bio/Skills</Label>
-                              <Textarea value={m.bio} onChange={(e) => updateMember(idx, "bio", e.target.value)} className="font-serif min-h-[80px]" />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">Graduating Year</Label>
-                                <Select value={m.graduatingYear || undefined} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
-                                  <SelectContent>
-                                    {["2026","2027","2028","2029"].map((y) => (
-                                      <SelectItem key={y} value={y}>{y}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Course Duration (years)</Label>
-                                <Select value={m.courseDuration || undefined} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                                  <SelectContent>
-                                    {["2","3","4","5"].map((d) => (
-                                      <SelectItem key={d} value={d}>{d}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label className="font-serif">Differently Abled</Label>
-                                <Select value={m.differentlyAbled || undefined} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
-                                  <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="no">No</SelectItem>
-                                    <SelectItem value="yes">Yes</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="font-serif">Location</Label>
-                                <Input value={m.location} onChange={(e) => updateMember(idx, "location", e.target.value)} className="font-serif" />
-                              </div>
-                            </div>
-                            {/* Removed 'Copy from Personal Information' action in modal as requested */}
-                            {/* Dialog footer actions */}
-                            <div className="flex justify-end gap-2 pt-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setEditingMemberIndex(null)}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                type="button"
-                                onClick={() => setEditingMemberIndex(null)}
-                              >
-                                Save changes
-                              </Button>
-                            </div>
+                            <div className="text-xs text-muted-foreground font-serif">{phone}</div>
                           </div>
-                        )})()}
-                      </>
-                    )}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button type="button" size="icon" variant="outline" aria-label="Actions">
+                                <Ellipsis className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openInviteForMember(idx)}>
+                                <Mail className="w-4 h-4 mr-2" /> Invite
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditingMemberIndex(idx)}>
+                                <Pencil className="w-4 h-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => removeMember(idx)} className="text-red-600 focus:text-red-700">
+                                <Trash2 className="w-4 h-4 mr-2" /> Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Edit Member Dialog */}
+              {editingMemberIndex !== null && registrationData.teamInfo.members[editingMemberIndex as number] && (
+                <Dialog open={editingMemberIndex !== null} onOpenChange={(open) => { if (!open) setEditingMemberIndex(null) }}>
+                  <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="font-sans">Edit Member {(editingMemberIndex as number) + 1}</DialogTitle>
+                    <DialogDescription className="font-serif">Update the member details and close the dialog.</DialogDescription>
+                  </DialogHeader>
+                  {(() => { const idx = editingMemberIndex as number; const m = registrationData.teamInfo.members[idx]; if (!m) return null; return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">First Name</Label>
+                          <Input value={m.firstName} onChange={(e) => updateMember(idx, "firstName", e.target.value)} className="font-serif" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-serif">Last Name</Label>
+                          <Input value={m.lastName} onChange={(e) => updateMember(idx, "lastName", e.target.value)} className="font-serif" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">Email</Label>
+                          <Input type="email" value={m.email} onChange={(e) => updateMember(idx, "email", e.target.value)} className="font-serif" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-serif">Mobile</Label>
+                          <Input type="tel" value={m.phone} onChange={(e) => updateMember(idx, "phone", e.target.value)} className="font-serif" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">Gender</Label>
+                          <Select value={m.gender || undefined} onValueChange={(v) => updateMember(idx, "gender", v)}>
+                            <SelectTrigger className="font-serif"><SelectValue placeholder="Select gender" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                              <SelectItem value="prefer_not_say">Prefer not to say</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-serif">Institute Name</Label>
+                          <Input value={m.instituteName} onChange={(e) => updateMember(idx, "instituteName", e.target.value)} className="font-serif" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">Type</Label>
+                          <Select value={m.type || undefined} onValueChange={(v) => updateMember(idx, "type", v)}>
+                            <SelectTrigger className="font-serif"><SelectValue placeholder="Select type" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="college_student">College Student</SelectItem>
+                              <SelectItem value="professional">Professional</SelectItem>
+                              <SelectItem value="fresher">Fresher</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* Domain field removed per request */}
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="font-serif">Bio/Skills</Label>
+                        <Textarea value={m.bio} onChange={(e) => updateMember(idx, "bio", e.target.value)} className="font-serif min-h-[80px]" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">Graduating Year</Label>
+                          <Select value={m.graduatingYear || undefined} onValueChange={(v) => updateMember(idx, "graduatingYear", v)}>
+                            <SelectTrigger className="font-serif"><SelectValue placeholder="Select year" /></SelectTrigger>
+                            <SelectContent>
+                              {["2026","2027","2028","2029"].map((y) => (
+                                <SelectItem key={y} value={y}>{y}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-serif">Course Duration (years)</Label>
+                          <Select value={m.courseDuration || undefined} onValueChange={(v) => updateMember(idx, "courseDuration", v)}>
+                            <SelectTrigger className="font-serif"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                            <SelectContent>
+                              {["2","3","4","5"].map((d) => (
+                                <SelectItem key={d} value={d}>{d}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="font-serif">Differently Abled</Label>
+                          <Select value={m.differentlyAbled || undefined} onValueChange={(v) => updateMember(idx, "differentlyAbled", v)}>
+                            <SelectTrigger className="font-serif"><SelectValue placeholder="Select option" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="no">No</SelectItem>
+                              <SelectItem value="yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-serif">Location</Label>
+                          <Input value={m.location} onChange={(e) => updateMember(idx, "location", e.target.value)} className="font-serif" />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setEditingMemberIndex(null)}>
+                          Cancel
+                        </Button>
+                        <Button type="button" onClick={() => setEditingMemberIndex(null)}>
+                          Save changes
+                        </Button>
+                      </div>
+                    </div>
+                  )})()}
                   </DialogContent>
                 </Dialog>
+              )}
 
                 {/* Invite Member Dialog */}
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
@@ -1128,94 +1156,125 @@ export default function EventRegistrationPage() {
                 {draftSaving ? "Saving..." : "Save as Draft"}
               </Button>
             </div>
-          </div>
+        </div>
 
-
-          {/* Agreements */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">Terms & Agreements</CardTitle>
-              <CardDescription className="font-serif">Please review and accept the following</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start space-x-2">
-                <Checkbox
-                  id="terms"
-                  checked={registrationData.agreements.termsAccepted}
-                  onCheckedChange={(checked) => updateAgreements("termsAccepted", checked as boolean)}
-                />
-                <Label htmlFor="terms" className="text-sm font-serif">
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-primary hover:text-primary/80">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-primary hover:text-primary/80">
-                    Privacy Policy
-                  </Link>
-                </Label>
+        {/* Payment */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-sans">Payment</CardTitle>
+            <CardDescription className="font-serif">Complete payment to enable registration</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Number((event as any)?.fees || 0) > 0 ? (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="text-sm font-serif">
+                  Amount Due: <span className="font-semibold">{payment.amount || (event as any)?.fees} {payment.currency}</span>
+                  <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${payment.status==='paid'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}`}>
+                    {payment.status === 'paid' ? 'Paid' : 'Not Paid'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => { handlePayNow(); }}
+                    disabled={payment.status==='paid' || isLoading || payment.verifying}
+                  >
+                    {payment.status==='paid' ? 'Payment Completed' : (isLoading || payment.verifying) ? 'Processing...' : 'Simulate Payment'}
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <div className="text-sm text-muted-foreground font-serif">No payment required for this event.</div>
+            )}
+          </CardContent>
+        </Card>
 
-              <div className="flex items-start space-x-2">
-                <Checkbox
-                  id="codeOfConduct"
-                  checked={registrationData.agreements.codeOfConductAccepted}
-                  onCheckedChange={(checked) => updateAgreements("codeOfConductAccepted", checked as boolean)}
-                />
-                <Label htmlFor="codeOfConduct" className="text-sm font-serif">
-                  I agree to abide by the{" "}
-                  <Link href="/code-of-conduct" className="text-primary hover:text-primary/80">
-                    Code of Conduct
-                  </Link>{" "}
-                  and event rules
-                </Label>
-              </div>
+        {/* Agreements */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-sans">Terms & Agreements</CardTitle>
+            <CardDescription className="font-serif">Please review and accept the following</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                checked={registrationData.agreements.termsAccepted}
+                onCheckedChange={(checked) => updateAgreements("termsAccepted", checked as boolean)}
+              />
+              <Label htmlFor="terms" className="text-sm font-serif">
+                I agree to the{" "}
+                <Link href="/terms" className="text-primary hover:text-primary/80">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-primary hover:text-primary/80">
+                  Privacy Policy
+                </Link>
+              </Label>
+            </div>
 
-              <div className="flex items-start space-x-2">
-                <Checkbox
-                  id="dataProcessing"
-                  checked={registrationData.agreements.dataProcessingAccepted}
-                  onCheckedChange={(checked) => updateAgreements("dataProcessingAccepted", checked as boolean)}
-                />
-                <Label htmlFor="dataProcessing" className="text-sm font-serif">
-                  I consent to the processing of my personal data for event management and communication purposes
-                </Label>
-              </div>
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="codeOfConduct"
+                checked={registrationData.agreements.codeOfConductAccepted}
+                onCheckedChange={(checked) => updateAgreements("codeOfConductAccepted", checked as boolean)}
+              />
+              <Label htmlFor="codeOfConduct" className="text-sm font-serif">
+                I agree to abide by the{" "}
+                <Link href="/code-of-conduct" className="text-primary hover:text-primary/80">
+                  Code of Conduct
+                </Link>{" "}
+                and event rules
+              </Label>
+            </div>
 
-              {/* Accept All */}
-              <div className="flex items-start space-x-2 pt-2 border-t mt-2">
-                <Checkbox
-                  id="acceptAll"
-                  checked={acceptAllState}
-                  onCheckedChange={(val) => {
-                    const v = val === true
-                    updateAgreements("termsAccepted", v)
-                    updateAgreements("codeOfConductAccepted", v)
-                    updateAgreements("dataProcessingAccepted", v)
-                  }}
-                />
-                <Label htmlFor="acceptAll" className="text-sm font-serif">
-                  Accept all
-                </Label>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="dataProcessing"
+                checked={registrationData.agreements.dataProcessingAccepted}
+                onCheckedChange={(checked) => updateAgreements("dataProcessingAccepted", checked as boolean)}
+              />
+              <Label htmlFor="dataProcessing" className="text-sm font-serif">
+                I consent to the processing of my personal data for event management and communication purposes
+              </Label>
+            </div>
 
-          {/* Submit - disabled if event not organizer-created or still loading/error */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-4">
-            <Button type="button" variant="outline" asChild>
-              <Link href={`/events/${id}`}>Cancel</Link>
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading || loading || !isFormValid()}
-              title={formInvalidReason() || undefined}
-            >
-              {isLoading ? "Registering..." : "Complete Registration"}
-            </Button>
-          </div>
-        </form>
-      </div>
+            {/* Accept All */}
+            <div className="flex items-start space-x-2 pt-2 border-t mt-2">
+              <Checkbox
+                id="acceptAll"
+                checked={acceptAllState}
+                onCheckedChange={(val) => {
+                  const v = val === true
+                  updateAgreements("termsAccepted", v)
+                  updateAgreements("codeOfConductAccepted", v)
+                  updateAgreements("dataProcessingAccepted", v)
+                }}
+              />
+              <Label htmlFor="acceptAll" className="text-sm font-serif">
+                Accept all
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Submit - disabled if event not organizer-created or still loading/error */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-4">
+          <Button type="button" variant="outline" asChild>
+            <Link href={`/events/${id}`}>Cancel</Link>
+          </Button>
+          <Button
+            id="submit-register"
+            type="submit"
+            disabled={isLoading || loading || !isFormValid()}
+            title={formInvalidReason() || undefined}
+          >
+            {isLoading ? "Registering..." : "Complete Registration"}
+          </Button>
+        </div>
+      </form>
+    </div>
     </div>
   )
 }
