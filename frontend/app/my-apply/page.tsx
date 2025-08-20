@@ -61,6 +61,8 @@ export default function MyApplyPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [regs, setRegs] = useState<MyRegistration[]>([])
+  const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState<"all" | "team" | "individual">("all")
   const [formByEvent, setFormByEvent] = useState<Record<string, {
     teamName?: string
     title: string
@@ -126,6 +128,39 @@ export default function MyApplyPage() {
     }
     return map
   }, [regs])
+
+  // Quick stats
+  const quickStats = useMemo(() => {
+    const total = regs.length
+    const team = regs.filter(r => r.registrationType === "team").length
+    const individual = total - team
+    const events = new Set(regs.map(r => r.event)).size
+    return { total, team, individual, events }
+  }, [regs])
+
+  // Filtered list based on search and type
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return regs.filter(r => {
+      if (typeFilter !== "all" && r.registrationType !== typeFilter) return false
+      if (!q) return true
+      const haystack = [
+        r.eventName,
+        r.event,
+        r.teamInfo?.teamName,
+        r.personalInfo?.firstName,
+        r.personalInfo?.lastName,
+        r.personalInfo?.email,
+        r.personalInfo?.organization,
+        r.personalInfo?.instituteName,
+        r.preferences?.track,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [regs, search, typeFilter])
 
   // Seed empty project submission forms per event (once per event)
   useEffect(() => {
@@ -259,8 +294,8 @@ export default function MyApplyPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
       <AdvancedNavigation currentPath="/my-apply" />
 
-      <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
-        <div className="text-center mb-10">
+      <main className="container mx-auto px-4 sm:px-6 pt-20 pb-16">
+        <div className="text-center mb-8">
           <Badge variant="secondary" className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 mb-3">
             <Users className="w-4 h-4 mr-2" />
             My Apply
@@ -272,7 +307,7 @@ export default function MyApplyPage() {
         </div>
 
         {/* Look up / refresh */}
-        <Card className="mb-10">
+        <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-base">Look up by your registration email</CardTitle>
           </CardHeader>
@@ -286,14 +321,26 @@ export default function MyApplyPage() {
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => { if (!authedEmail) setEmail(e.target.value) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        fetchMine()
+                      }
+                    }}
                     readOnly={!!authedEmail}
                     className="pl-9"
                   />
                 </div>
               </div>
-              <Button onClick={() => fetchMine()} disabled={loading || !email}>
-                {loading ? "Loading…" : authedEmail ? "Refresh" : "Check"}
-              </Button>
+              <div className="flex items-center">
+                <Button
+                  onClick={() => fetchMine()}
+                  variant="cta"
+                  className="min-w-32 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </Button>
+              </div>
             </div>
 
             {authedEmail && (
@@ -306,33 +353,89 @@ export default function MyApplyPage() {
               <div className="text-sm text-red-600 border border-red-200 rounded p-2 bg-red-50">{error}</div>
             )}
 
-            {regs.length > 0 && (
-              <div className="text-sm text-slate-700">
-                <span className="font-medium">Total registrations:</span> {regs.length}
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-md border bg-white p-3">
+                <div className="text-xs text-slate-500">Total</div>
+                <div className="text-lg font-semibold">{quickStats.total}</div>
               </div>
-            )}
+              <div className="rounded-md border bg-white p-3">
+                <div className="text-xs text-slate-500">Teams</div>
+                <div className="text-lg font-semibold">{quickStats.team}</div>
+              </div>
+              <div className="rounded-md border bg-white p-3">
+                <div className="text-xs text-slate-500">Individuals</div>
+                <div className="text-lg font-semibold">{quickStats.individual}</div>
+              </div>
+              <div className="rounded-md border bg-white p-3">
+                <div className="text-xs text-slate-500">Events</div>
+                <div className="text-lg font-semibold">{quickStats.events}</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Enrolled in Events section removed as per request */}
 
         {/* Full list of registrations */}
-        <div className="mt-16 space-y-6">
-          <h2 className="text-2xl font-bold text-slate-900">All Registrations</h2>
+        <div className="mt-12 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <h2 className="text-2xl font-bold text-slate-900">All Registrations</h2>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by event, team, name, email"
+                className="w-full sm:w-80"
+              />
+              <div className="inline-flex rounded-md border bg-white p-1">
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'all' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'all' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
+                  onClick={() => setTypeFilter('all')}
+                >All</Button>
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'team' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'team' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
+                  onClick={() => setTypeFilter('team')}
+                >Teams</Button>
+                <Button
+                  size="sm"
+                  variant={typeFilter === 'individual' ? 'cta' : 'outline'}
+                  className={`rounded ${typeFilter === 'individual' ? '' : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-300'}`}
+                  onClick={() => setTypeFilter('individual')}
+                >Individuals</Button>
+              </div>
+            </div>
+          </div>
           <Card>
             <CardContent className="space-y-3 pt-6">
-              {regs.length === 0 && !loading && (
+              {loading && (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="animate-pulse border rounded-md p-3 bg-white">
+                      <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {filtered.length === 0 && !loading && (
                 <div className="text-sm text-slate-600">No registrations found.</div>
               )}
 
-              {regs.map((r) => (
+              {filtered.map((r) => (
                 <details key={r._id} className="border rounded-md p-3">
                   <summary className="flex items-center justify-between cursor-pointer">
                     <div className="space-y-1">
-                      <div className="text-sm text-slate-900 font-medium capitalize">{r.registrationType}</div>
-                      <div className="text-sm text-slate-600">Event: {r.eventName || r.event}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full border capitalize bg-white">{r.registrationType}</span>
+                        <div className="text-sm text-slate-600">{r.eventName || r.event}</div>
+                      </div>
                       {r.registrationType === "team" && r.teamInfo?.teamName && (
-                        <div className="text-sm text-slate-600">Team: {r.teamInfo.teamName}</div>
+                        <div className="text-sm text-slate-700"><span className="text-slate-500">Team:</span> {r.teamInfo.teamName}</div>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
@@ -340,18 +443,22 @@ export default function MyApplyPage() {
                         <Calendar className="w-3 h-3" />
                         {fmtDate(r.createdAt)}
                       </div>
-                      <Link href={`/events/${r.event}/submission`} onClick={(e) => e.stopPropagation()}>
-                        <Button size="sm" variant="outline">Open submission</Button>
-                      </Link>
-                    </div>
-                  </summary>
-                  <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
+                      <div className="hidden sm:flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/events/${r.event}`}>
+                          <Button size="sm" variant="cta" className="shadow-md">View event</Button>
+                        </Link>
+                        <Link href={`/events/${r.event}/submission`}>
+                          <Button size="sm" variant="cta" className="shadow-md">Open submission</Button>
+                        </Link>
+                      </div>
+                  </div>
+                </summary>
+                <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1">
                       <div className="font-semibold text-slate-800">Personal Info</div>
                       <div>Name: {r.personalInfo?.firstName} {r.personalInfo?.lastName}</div>
                       <div>Email: {r.personalInfo?.email}</div>
                       {r.personalInfo?.phone && <div>Phone: {r.personalInfo.phone}</div>}
-                      {r.personalInfo?.organization && <div>Org: {r.personalInfo.organization}</div>}
                       {r.personalInfo?.instituteName && <div>Institute: {r.personalInfo.instituteName}</div>}
                       {(r.personalInfo?.type || r.personalInfo?.domain) && (
                         <div>Type/Domain: {r.personalInfo?.type} {r.personalInfo?.domain && `· ${r.personalInfo.domain}`}</div>
@@ -383,6 +490,14 @@ export default function MyApplyPage() {
                             </ul>
                           </div>
                         )}
+                        <div className="sm:hidden flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                          <Link href={`/events/${r.event}`}>
+                            <Button size="sm" variant="cta" className="w-full shadow-md">View event</Button>
+                          </Link>
+                          <Link href={`/events/${r.event}/submission`}>
+                            <Button size="sm" variant="cta" className="w-full shadow-md">Open submission</Button>
+                          </Link>
+                        </div>
                       </div>
                     )}
                   </div>

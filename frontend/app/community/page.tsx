@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Users, ThumbsUp } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -16,6 +17,7 @@ type Answer = { id?: string; body: string; author: any; createdAt?: string; upvo
 type Question = { id: string; title: string; body: string; author: string; createdAt?: string; tags?: string[]; upvotes?: number; solved?: boolean; answers?: Answer[] }
 
 export default function CommunityPage() {
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,8 @@ export default function CommunityPage() {
   const [annTitle, setAnnTitle] = useState("")
   const [annBody, setAnnBody] = useState("")
   const [annBanner, setAnnBanner] = useState<File | null>(null)
+  const [annPinned, setAnnPinned] = useState(false)
+  const [annTags, setAnnTags] = useState("")
 
   const [open, setOpen] = useState(false)
   const [isAuthed, setIsAuthed] = useState(false)
@@ -45,6 +49,8 @@ export default function CommunityPage() {
   const [qBody, setQBody] = useState("")
   const [qTags, setQTags] = useState("")
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({})
+  const [qaTagFilter, setQaTagFilter] = useState<string | null>(null)
+  const [qaSearch, setQaSearch] = useState("")
 
   // Prefer human name/email if author is an object; otherwise fallback to string
   const displayAuthorName = (val: any): string => {
@@ -123,6 +129,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 25000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -146,6 +154,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 25000)
+    return () => clearInterval(id)
   }, [])
 
   // Load announcements
@@ -168,6 +178,8 @@ export default function CommunityPage() {
       }
     }
     load()
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
   }, [])
 
   const totals = useMemo(() => {
@@ -200,11 +212,11 @@ export default function CommunityPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       if (!token) {
-        window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+        router.push("/auth/login?next=" + encodeURIComponent("/community"))
         return
       }
     } catch {
-      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+      router.push("/auth/login?next=" + encodeURIComponent("/community"))
       return
     }
 
@@ -234,6 +246,66 @@ export default function CommunityPage() {
         try { localStorage.setItem("liked_posts", JSON.stringify(Array.from(next))) } catch { /* ignore */ }
         return next
       })
+    }
+  }
+
+  // Q&A: upvote a question (optimistic)
+  const upvoteQuestion = async (qid: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { router.push('/auth/login?next=' + encodeURIComponent('/community')); return }
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? { ...q, upvotes: (q.upvotes || 0) + 1 } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? { ...q, upvotes: Math.max(0, (q.upvotes || 1) - 1) } : q))
+    }
+  }
+
+  // Q&A: upvote an answer (optimistic)
+  const upvoteAnswer = async (qid: string, aid: string) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? {
+      ...q,
+      answers: (q.answers || []).map(a => a.id === aid ? { ...a, upvotes: (a.upvotes || 0) + 1 } : a)
+    } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/answers/${aid}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? {
+        ...q,
+        answers: (q.answers || []).map(a => a.id === aid ? { ...a, upvotes: Math.max(0, (a.upvotes || 1) - 1) } : a)
+      } : q))
+    }
+  }
+
+  // Q&A: mark solved/unsolved (organizer/admin)
+  const toggleSolved = async (qid: string, nextVal?: boolean) => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token) { window.location.href = '/auth/login?next=' + encodeURIComponent('/community'); return }
+    const current = questions.find(q => q.id === qid)?.solved || false
+    const target = typeof nextVal === 'boolean' ? nextVal : !current
+    // optimistic
+    setQuestions(prev => prev.map(q => q.id === qid ? { ...q, solved: target } : q))
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${base}/api/community/questions/${qid}/solved`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ solved: target })
+      })
+      if (!res.ok) throw new Error('fail')
+    } catch {
+      // rollback
+      setQuestions(prev => prev.map(q => q.id === qid ? { ...q, solved: current } : q))
     }
   }
 
@@ -287,16 +359,18 @@ export default function CommunityPage() {
       window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
       return
     }
-    const draft: Announcement = { id: `tmp-${Date.now()}`, title: annTitle.trim(), body: annBody.trim(), author: "You" }
+    const draft: Announcement = { id: `tmp-${Date.now()}`, title: annTitle.trim(), body: annBody.trim(), author: "You", pinned: annPinned, 
+      // store tags as comma string in UI; not shown in card for now
+    }
     setAnnouncements((prev) => [{ ...draft }, ...prev])
-    setAnnOpen(false); setAnnTitle(""); setAnnBody("");
+    setAnnOpen(false); setAnnTitle(""); setAnnBody(""); setAnnPinned(false); setAnnTags("")
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       const res = await fetch(`${base}/api/community/announcements`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ title: draft.title, body: draft.body, author: draft.author }),
+        body: JSON.stringify({ title: draft.title, body: draft.body, author: draft.author, pinned: annPinned, tags: annTags.split(',').map(t=>t.trim()).filter(Boolean) }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -426,7 +500,14 @@ export default function CommunityPage() {
           <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
             Tips, resources, and stories from the builder community.
           </p>
-          {/* Post creation dialog (opened by the Posts section button) */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600">
+            <span className="px-2 py-1 rounded bg-slate-100">Posts: {totals.totalPosts}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Total Likes: {totals.totalLikes}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Announcements: {announcements.length}</span>
+            <span className="px-2 py-1 rounded bg-slate-100">Q&A: {questions.length}</span>
+          </div>
+        </div>
+  {/* Post creation dialog (opened by the Posts section button) */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent>
               <DialogHeader>
@@ -439,11 +520,10 @@ export default function CommunityPage() {
               </div>
 
               <DialogFooter>
-                <Button onClick={submitPost} disabled={!canSubmit} className="bg-cyan-600 hover:bg-cyan-700 transition-colors">Publish</Button>
+                <Button onClick={submitPost} disabled={!canSubmit} variant="cta">Publish</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
 
         {/* Tabs */}
         <div className="flex items-center justify-center gap-2 mb-8">
@@ -456,10 +536,11 @@ export default function CommunityPage() {
               key={tab.key}
               onClick={() => setActiveSection(tab.key)}
               className={
-                `px-4 py-2 rounded-full text-sm font-medium transition-colors ` +
+                `px-4 py-2 rounded-full text-sm font-semibold transition-all transform-gpu will-change-transform ` +
                 (activeSection === tab.key
-                  ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200')
+                  ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-emerald-600/40 shadow-2xl ring-2 ring-emerald-300/70 hover:ring-emerald-400/80'
+                  : 'bg-white text-slate-800 border-2 border-slate-300 hover:border-slate-400') +
+                ' hover:-translate-y-0.5 hover:scale-[1.03] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2'
               }
             >
               {tab.label}
@@ -475,7 +556,7 @@ export default function CommunityPage() {
             {(role === 'organizer' || role === 'admin') ? (
               <Dialog open={annOpen} onOpenChange={setAnnOpen}>
                 <Button
-                  variant="outline"
+                  variant="cta"
                   onClick={() => {
                     try {
                       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -491,18 +572,23 @@ export default function CommunityPage() {
                   <div className="space-y-3">
                     <Input placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} />
                     <Textarea placeholder="What's new?" value={annBody} onChange={(e) => setAnnBody(e.target.value)} />
+                    <div className="flex items-center gap-3 text-sm text-slate-700">
+                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" checked={annPinned} onChange={(e)=>setAnnPinned(e.target.checked)} /> Pin this</label>
+                      <Input placeholder="Tags (comma separated)" value={annTags} onChange={(e)=>setAnnTags(e.target.value)} />
+                    </div>
                     <div className="text-sm text-slate-700">
                       <label className="block mb-1">Banner image (optional)</label>
                       <input type="file" accept="image/*" onChange={(e) => setAnnBanner(e.target.files?.[0] || null)} />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button onClick={submitAnnouncement} disabled={annTitle.trim().length < 2 || annBody.trim().length < 2} className="bg-cyan-600 hover:bg-cyan-700">Publish</Button>
+                    <Button onClick={submitAnnouncement} disabled={annTitle.trim().length < 2 || annBody.trim().length < 2} variant="cta">Publish</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             ) : null}
           </div>
+          <div className="mb-2 text-xs text-slate-500">Auto-refreshing every ~30s</div>
           {annLoading ? (
             <div className="grid md:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -545,7 +631,7 @@ export default function CommunityPage() {
             <h2 className="text-xl font-semibold text-slate-900">❓ Q&A</h2>
             <Dialog open={askOpen} onOpenChange={setAskOpen}>
               <Button
-                variant="outline"
+                variant="cta"
                 onClick={() => {
                   try {
                     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -564,10 +650,20 @@ export default function CommunityPage() {
                   <Input placeholder="Tags (comma separated)" value={qTags} onChange={(e) => setQTags(e.target.value)} />
                 </div>
                 <DialogFooter>
-                  <Button onClick={submitQuestion} disabled={qTitle.trim().length < 5 || qBody.trim().length < 5} className="bg-cyan-600 hover:bg-cyan-700">Post Question</Button>
+                  <Button onClick={submitQuestion} disabled={qTitle.trim().length < 5 || qBody.trim().length < 5} variant="cta">Post Question</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </div>
+          {/* Q&A filters */}
+          <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Input className="md:col-span-2" placeholder="Search questions (title/body/tags)" value={qaSearch} onChange={(e)=>setQaSearch(e.target.value)} />
+            <select className="border border-slate-300 rounded-md text-sm px-2 py-2 bg-white" value={qaTagFilter || ''} onChange={(e)=>setQaTagFilter(e.target.value || null)}>
+              <option value="">All tags</option>
+              {Array.from(new Set(questions.flatMap(q=>q.tags||[]))).slice(0,20).map(t=> (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
           {qaLoading ? (
             <div className="grid md:grid-cols-2 gap-4">
@@ -579,20 +675,48 @@ export default function CommunityPage() {
             <p className="text-slate-600 text-sm">No questions yet.</p>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {questions.map((q) => (
+              {questions
+                .filter(q => !qaTagFilter || (q.tags||[]).includes(qaTagFilter))
+                .filter(q => {
+                  const term = qaSearch.trim().toLowerCase();
+                  if (!term) return true;
+                  return q.title.toLowerCase().includes(term) || (q.body||'').toLowerCase().includes(term) || (q.tags||[]).some(t=>t.toLowerCase().includes(term));
+                })
+                .map((q) => (
                 <Card key={q.id} className="border border-slate-200 shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">{q.solved ? '✅' : '❔'} {q.title}</CardTitle>
-                    <CardDescription>by {q.author}{q.tags && q.tags.length ? ` • ${q.tags.slice(0,3).join(', ')}` : ''}</CardDescription>
+                    <CardDescription>by {q.author}{q.tags && q.tags.length ? ` • ${q.tags.slice(0,3).join(', ')}` : ''} {q.answers && q.answers.length ? ` • ${q.answers.length} answers` : ''} {typeof q.upvotes === 'number' ? ` • ${q.upvotes} upvotes` : ''}</CardDescription>
                   </CardHeader>
                   <CardContent>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs text-slate-500">{q.solved ? 'Marked as solved' : 'Open question'}</div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => upvoteQuestion(q.id)}>Upvote</Button>
+                        {(role === 'organizer' || role === 'admin') && (
+                          <Button size="sm" variant={q.solved ? 'secondary' : 'cta'} onClick={() => toggleSolved(q.id)}>
+                            {q.solved ? 'Unsolve' : 'Mark Solved'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     <p className="text-sm text-slate-700 mb-3">{preview(q.body)}</p>
                     {q.answers && q.answers.length > 0 && (
                       <div className="space-y-2 mb-3">
                         {(q.answers).map((a, idx) => (
                           <div key={(a.id || '') + idx} className="text-sm text-slate-700 border border-slate-200 rounded p-2 bg-white/60">
                             <div className="text-slate-500 text-xs mb-1">Answer by {displayAuthorName(a.author)}</div>
-                            <div>{a.body}</div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>{a.body}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500">{typeof a.upvotes==='number' ? a.upvotes : 0} upvotes</span>
+                                {a.id && (
+                                  <Button size="sm" variant="secondary" onClick={() => upvoteAnswer(q.id, a.id!)}>
+                                    Upvote
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -608,7 +732,7 @@ export default function CommunityPage() {
                           size="sm"
                           onClick={() => submitAnswer(q.id)}
                           disabled={(answerInputs[q.id] || '').trim().length < 2}
-                          className="bg-cyan-600 hover:bg-cyan-700"
+                          variant="cta"
                         >Post Answer</Button>
                       </div>
                     </div>
@@ -650,7 +774,7 @@ export default function CommunityPage() {
             <div className="md:col-span-3">
               <div className="flex justify-end mb-4">
                 <Button
-                  className="bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                  variant="cta"
                   onClick={() => {
                     try {
                       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -667,6 +791,7 @@ export default function CommunityPage() {
                   <MessageSquare className="w-4 h-4 mr-2" />New Post
                 </Button>
               </div>
+              <div className="mb-2 text-xs text-slate-500">Auto-refreshing every ~25s</div>
               {loading ? (
                 <div className="grid md:grid-cols-3 gap-5">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -689,9 +814,9 @@ export default function CommunityPage() {
                   {filtered.map((p) => (
                     <Card
                       key={p.id}
-                      className="border border-slate-200 shadow-sm bg-white/90 backdrop-blur-sm"
+                      className="relative border border-slate-200 shadow-sm bg-white/95 backdrop-blur-sm transition-all duration-300 transform-gpu will-change-transform hover:-translate-y-1 hover:shadow-2xl [transform:perspective(1200px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(1200px)_rotateX(2deg)_rotateY(-2deg)]"
                     >
-                      <CardHeader>
+                      <CardHeader className="relative">
                         <CardTitle>{p.title}</CardTitle>
                         <CardDescription>by {p.author}</CardDescription>
                       </CardHeader>
@@ -702,15 +827,15 @@ export default function CommunityPage() {
                         <div className="flex items-center justify-between">
                           <Badge
                             variant="secondary"
-                            className="bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-xs hover:bg-emerald-100/70 transition-colors inline-flex items-center"
+                            className="bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 transition-colors inline-flex items-center ring-1 ring-emerald-300/60"
                           >
                             <ThumbsUp className="w-3 h-3 mr-1" /> {p.likes} likes
                           </Badge>
                           <Button
                             size="sm"
-                            variant="default"
+                            variant="cta"
                             onClick={() => likePost(p.id)}
-                            className="shadow-xs hover:shadow-sm"
+                            className="shadow-emerald-600/40 hover:shadow-emerald-600/50 transform-gpu transition-all hover:-translate-y-0.5 active:translate-y-0"
                             disabled={likedPosts.has(p.id)}
                           >
                             <ThumbsUp className="w-4 h-4 mr-2" /> {likedPosts.has(p.id) ? "Liked" : "Like"}
@@ -725,7 +850,7 @@ export default function CommunityPage() {
 
             {/* Sidebar */}
             <div className="md:col-span-1 space-y-6">
-              <Card className="border border-slate-200 shadow-sm">
+              <Card className="relative border border-slate-200 shadow-sm transition-all duration-300 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
                 <CardHeader>
                   <CardTitle className="text-base">Community stats</CardTitle>
                   <CardDescription>Activity overview</CardDescription>

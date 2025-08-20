@@ -4,7 +4,7 @@ import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart3, TrendingUp, Users, Activity, RefreshCw, Download } from "lucide-react"
+import { BarChart3, TrendingUp, Users, Activity, RefreshCw, Download, Trophy } from "lucide-react"
 import { InteractiveStatsDashboard } from "@/components/interactive-stats-dashboard"
 import AdvancedAnalytics from "@/components/advanced-analytics-dashboard"
 import { useState, useEffect } from "react"
@@ -79,20 +79,26 @@ export default function AnalyticsPage() {
           
           {/* Action Bar */}
           <div className="flex items-center justify-center gap-4 mt-8">
-            <Button 
-              onClick={handleRefresh} 
+            <Button
+              variant="cta"
+              size="lg"
+              onClick={handleRefresh}
               disabled={isRefreshing}
-              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+              className="transform-gpu transition-all duration-300 will-change-transform shadow-2xl shadow-emerald-600/30 hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/50 ring-1 ring-emerald-300/30 hover:ring-emerald-400/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(4deg)_rotateY(-3deg)_translateY(-2px)]"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
             </Button>
-            <Button variant="outline">
+            <Button
+              variant="outline"
+              size="lg"
+              className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
+            >
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </Button>
             {lastUpdated && (
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-slate-700 font-medium">
                 Last updated: {lastUpdated}
               </span>
             )}
@@ -159,6 +165,9 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Global Leaderboard */}
+          <GlobalLeaderboardSection />
         </div>
       </main>
     </div>
@@ -192,6 +201,123 @@ function RoleAwareAnalytics({ loadingRole, role, roleError }: { loadingRole: boo
   if (role === "judge" || role === "organizer" || role === "admin") return <JudgeAnalyticsView />
   // Unauthenticated or other roles: show nothing extra
   return null
+}
+
+// Global leaderboard for everyone (optionally filter by event)
+function GlobalLeaderboardSection() {
+  const [leaders, setLeaders] = useState<Array<{ _id: string; name?: string; score?: number; eventName?: string }>>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [events, setEvents] = useState<Array<{ _id: string; title: string }>>([])
+  const [eventId, setEventId] = useState<string>("all")
+
+  const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const res = await fetch(`${base}/api/events`)
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || 'Failed to load events')
+        const list = Array.isArray(data?.events) ? data.events : []
+        setEvents(list.map((e: any) => ({ _id: e?._id, title: e?.title || 'Event' })).filter((e: any) => e._id))
+      } catch {
+        // non-fatal
+      }
+    }
+    loadEvents()
+  }, [])
+
+  const loadLeaders = async () => {
+    try {
+      setError(null)
+      setLoading(true)
+      const params = new URLSearchParams({ sort: 'score_desc', limit: '9' })
+      if (eventId && eventId !== 'all') params.set('eventId', eventId)
+      const res = await fetch(`${base}/api/teams?${params.toString()}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || 'Failed to load leaderboard')
+      setLeaders(Array.isArray(data?.teams) ? data.teams : [])
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load leaderboard')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadLeaders() }, [eventId])
+  useEffect(() => {
+    const id = setInterval(loadLeaders, 15000)
+    return () => clearInterval(id)
+  }, [eventId])
+
+  return (
+    <Card className="glass-card border-0 shadow-xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <Trophy className="w-6 h-6 text-amber-600" />
+          Global Leaderboard
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error && <div className="text-sm text-red-600">{error}</div>}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-slate-600">
+            Showing {leaders.length} team{leaders.length === 1 ? '' : 's'}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-slate-500">Filter by event</span>
+            <Select value={eventId} onValueChange={setEventId}>
+              <SelectTrigger className="w-56">
+                <SelectValue placeholder="Choose event (optional)" />
+              </SelectTrigger>
+              <SelectContent className="w-56">
+                <SelectItem value="all">All Events</SelectItem>
+                {events.map((ev) => (
+                  <SelectItem key={ev._id} value={ev._id}>{ev.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, idx) => (
+              <Card key={idx} className="shadow-sm border border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-base">Loading…</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold text-slate-300 mb-2">0</div>
+                  <div className="bg-slate-200 h-5 w-24 rounded" />
+                </CardContent>
+              </Card>
+            ))
+          ) : leaders.length === 0 ? (
+            <div className="col-span-full text-center text-slate-600 py-10">No teams found for the selected filter.</div>
+          ) : (
+            leaders.map((l, i) => (
+              <Card key={l._id || i} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">{i + 1}</span>
+                    {l.name || `Team ${i + 1}`}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-slate-900 mb-2">{typeof l.score === 'number' ? l.score : '—'}</div>
+                  {l.eventName && (
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">{l.eventName}</Badge>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 // Participant view: limited to their events, with real-time polling

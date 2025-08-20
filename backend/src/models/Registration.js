@@ -59,6 +59,14 @@ const registrationSchema = new mongoose.Schema(
       codeOfConductAccepted: { type: Boolean, required: true },
       dataProcessingAccepted: { type: Boolean, required: true },
     },
+    payment: {
+      status: { type: String, enum: ['paid', 'free'], required: false },
+      amount: { type: Number, default: 0 },
+      currency: { type: String, default: 'INR' },
+      orderId: { type: String },
+      paymentId: { type: String },
+      signature: { type: String },
+    },
   },
   { timestamps: true }
 );

@@ -103,7 +103,14 @@ export default function ResetPasswordPage() {
                   <PasswordInput id="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="pl-10 font-serif" placeholder="Re-enter your new password" required />
                 </div>
               </div>
-              <Button type="submit" className="w-full font-serif" disabled={loading}>{loading ? "Updating..." : "Reset Password"}</Button>
+              <Button
+                type="submit"
+                variant="cta"
+                className="w-full font-serif ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 shadow-emerald-600/40 transform-gpu transition-all hover:-translate-y-0.5 disabled:opacity-100 disabled:brightness-95 disabled:saturate-75 disabled:hover:translate-y-0"
+                disabled={loading}
+              >
+                {loading ? "Updating..." : "Reset Password"}
+              </Button>
               <div className="text-center text-sm font-serif"><Link href="/auth/login" className="text-primary hover:text-primary/80">Back to sign in</Link></div>
             </form>
           </CardContent>

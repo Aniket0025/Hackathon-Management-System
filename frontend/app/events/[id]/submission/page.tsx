@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,7 +54,6 @@ type MyRegistration = {
 
 export default function EventSubmissionPage() {
   const params = useParams<{ id: string }>()
-  const router = useRouter()
   const eventId = params?.id as string
 
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
@@ -164,19 +163,9 @@ export default function EventSubmissionPage() {
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Badge variant="secondary" className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 mb-2">Submission</Badge>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{eventName}</h1>
-            {authedEmail && (
-              <div className="text-sm text-slate-600 mt-1">Signed in as {authedEmail}</div>
-            )}
-          </div>
-          <Button variant="outline" onClick={() => router.push('/my-apply')}>Back to My Apply</Button>
-        </div>
 
-        <Card>
-          <CardHeader>
+        <Card className="max-w-4xl mx-auto ring-1 ring-cyan-100/70 shadow-md bg-white/90 backdrop-blur-sm">
+          <CardHeader className="border-b pb-4">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Project Submission</span>
               {teamsForEvent.length > 0 && (
@@ -185,6 +174,16 @@ export default function EventSubmissionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Helpful tips banner */}
+            <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-3 text-sm text-emerald-800">
+              <div className="font-medium mb-1">Tips for a great submission</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Pick the correct team if you registered multiple.</li>
+                <li>Keep the title concise and meaningful.</li>
+                <li>Add a short demo video (60–120s) if possible.</li>
+              </ul>
+            </div>
+            <div className="max-w-3xl mx-auto space-y-5">
             {teamsForEvent.length > 1 && (
               <div>
                 <label className="block text-sm text-slate-700 mb-1">Team</label>
@@ -203,11 +202,12 @@ export default function EventSubmissionPage() {
             <div>
               <label className="block text-sm text-slate-700 mb-1">Title</label>
               <Input value={form.title} onChange={(ev) => updateForm('title', ev.target.value)} placeholder="Project Title" />
+              <p className="text-xs text-slate-500 mt-1">Clear and descriptive. Example: "EcoAI – Carbon Footprint Assistant"</p>
             </div>
             <div>
               <label className="block text-sm text-slate-700 mb-1">Description</label>
               <textarea
-                className="border rounded-md px-3 py-2 w-full text-sm"
+                className="border rounded-md px-3 py-2 w-full text-sm leading-6"
                 rows={3}
                 value={form.description}
                 onChange={(ev) => updateForm('description', ev.target.value)}
@@ -218,14 +218,17 @@ export default function EventSubmissionPage() {
               <div>
                 <label className="block text-sm text-slate-700 mb-1">GitHub Repo</label>
                 <Input value={form.repoUrl} onChange={(ev) => updateForm('repoUrl', ev.target.value)} placeholder="https://github.com/..." />
+                <p className="text-xs text-slate-500 mt-1">Public repo or add access notes in description.</p>
               </div>
               <div>
                 <label className="block text-sm text-slate-700 mb-1">Docs</label>
                 <Input value={form.docsUrl} onChange={(ev) => updateForm('docsUrl', ev.target.value)} placeholder="Docs link (Notion, Google Doc, etc.)" />
+                <p className="text-xs text-slate-500 mt-1">Optional but helpful for judges.</p>
               </div>
               <div>
                 <label className="block text-sm text-slate-700 mb-1">Video</label>
                 <Input value={form.videoUrl} onChange={(ev) => updateForm('videoUrl', ev.target.value)} placeholder="Demo video URL (YouTube, Drive)" />
+                <p className="text-xs text-slate-500 mt-1">60–120s demo highlighting what matters.</p>
               </div>
             </div>
 
@@ -237,7 +240,7 @@ export default function EventSubmissionPage() {
             )}
 
             <div>
-              <Button onClick={submitProject} disabled={!!form.submitting}>
+              <Button onClick={submitProject} disabled={!!form.submitting} className="bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-700 hover:to-emerald-700 text-white shadow-md">
                 {form.submitting ? 'Submitting…' : 'Submit Project'}
               </Button>
             </div>
@@ -249,6 +252,7 @@ export default function EventSubmissionPage() {
             {error && (
               <div className="text-sm text-red-600 border border-red-200 rounded p-2 bg-red-50">{error}</div>
             )}
+            </div>
           </CardContent>
         </Card>
       </main>

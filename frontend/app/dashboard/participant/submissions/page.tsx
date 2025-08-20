@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,26 +11,84 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Upload, ArrowLeft } from "lucide-react"
 
-type EventLite = { _id: string; title: string }
-type RegistrationLite = {
-  _id: string
-  event: string
-  eventName: string
-  registrationType?: string
-  teamInfo?: { teamName?: string }
-}
+// Mock submissions data
+const mockSubmissions = [
+  {
+    id: 1,
+    eventId: 1,
+    eventName: "AI Innovation Challenge 2024",
+    projectName: "EcoAI Assistant",
+    description: "An AI-powered assistant that helps users make environmentally conscious decisions",
+    status: "submitted",
+    submittedAt: "2024-03-14T15:30:00",
+    lastUpdated: "2024-03-14T15:30:00",
+    round: "final",
+    teamName: "AI Pioneers",
+    githubUrl: "https://github.com/ai-pioneers/ecoai-assistant",
+    demoUrl: "https://ecoai-demo.vercel.app",
+    videoUrl: "https://youtube.com/watch?v=demo123",
+    files: [
+      { name: "project-documentation.pdf", size: "2.4 MB", type: "application/pdf" },
+      { name: "demo-video.mp4", size: "45.2 MB", type: "video/mp4" },
+      { name: "presentation.pptx", size: "8.1 MB", type: "application/vnd.ms-powerpoint" },
+    ],
+    judgeScore: 8.5,
+    feedback: "Excellent implementation with strong environmental impact potential.",
+  },
+  {
+    id: 2,
+    eventId: 2,
+    eventName: "Sustainable Tech Hackathon",
+    projectName: "GreenTracker",
+    description: "Mobile app for tracking personal carbon footprint",
+    status: "draft",
+    submittedAt: null,
+    lastUpdated: "2024-02-20T10:15:00",
+    round: "preliminary",
+    teamName: null, // Individual submission
+    githubUrl: "https://github.com/johndoe/greentracker",
+    demoUrl: "",
+    videoUrl: "",
+    files: [{ name: "wireframes.pdf", size: "1.2 MB", type: "application/pdf" }],
+    judgeScore: null,
+    feedback: null,
+  },
+]
+
+const mockEvents = [
+  {
+    id: 1,
+    name: "AI Innovation Challenge 2024",
+    submissionDeadline: "2024-03-15T23:59:00",
+    status: "active",
+    allowedFileTypes: [".pdf", ".doc", ".docx", ".mp4", ".mov", ".zip"],
+    maxFileSize: "50MB",
+    rounds: ["preliminary", "final"],
+    currentRound: "final",
+  },
+  {
+    id: 2,
+    name: "Sustainable Tech Hackathon",
+    submissionDeadline: "2024-02-22T23:59:00",
+    status: "active",
+    allowedFileTypes: [".pdf", ".doc", ".docx", ".mp4", ".mov", ".zip"],
+    maxFileSize: "50MB",
+    rounds: ["preliminary"],
+    currentRound: "preliminary",
+  },
+]
 
 export default function SubmissionsPage() {
   const router = useRouter()
   const params = useSearchParams()
   const eventId = useMemo(() => params.get("eventId") || "", [params])
 
-  const [event, setEvent] = useState<EventLite | null>(null)
+  const [event, setEvent] = useState<{ _id: string; title: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [meEmail, setMeEmail] = useState<string | null>(null)
-  const [registrations, setRegistrations] = useState<RegistrationLite[]>([])
+  const [registrations, setRegistrations] = useState<Array<{ _id: string; event: string; eventName: string; registrationType?: string; teamInfo?: { teamName?: string } }>>([])
   const [regsLoading, setRegsLoading] = useState(false)
   const [regsError, setRegsError] = useState<string | null>(null)
   const [eventsById, setEventsById] = useState<Record<string, { _id: string; title: string; bannerUrl?: string }>>({})
@@ -45,7 +102,6 @@ export default function SubmissionsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState<string | null>(null)
 
-  // Load event info if eventId provided
   useEffect(() => {
     const run = async () => {
       if (!eventId) { setEvent(null); return }
@@ -164,10 +220,8 @@ export default function SubmissionsPage() {
       const data = await res.json().catch(() => ({} as any))
       if (!res.ok) throw new Error(data?.message || "Submission failed")
       setSubmitMsg("Submitted successfully")
-      // Navigate to event page
-      if (typeof window !== "undefined") {
-        window.location.href = `/events/${eventId}`
-      }
+      // Navigate to event page (client-side)
+      router.push(`/events/${eventId}`)
     } catch (e: any) {
       setSubmitMsg(e?.message || "Submission failed")
     } finally {
@@ -178,9 +232,9 @@ export default function SubmissionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 text-center">
           <div>
-            <Badge className="mb-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-transparent">Submission</Badge>
+            <Badge className="mb-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-transparent mx-auto">Submission</Badge>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{event?.title || "Project Submission"}</h1>
             <div className="text-sm text-slate-600 mt-1">{eventId ? `Event ID: ${eventId}` : "Choose an event to submit to"}</div>
           </div>
@@ -204,6 +258,15 @@ export default function SubmissionsPage() {
             <CardDescription>Submit your project details for the selected event.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Helpful tips banner */}
+            <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-3 text-sm text-emerald-800">
+              <div className="font-medium mb-1">Tips for a great submission</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use a concise, descriptive title.</li>
+                <li>Include a repo link and a short demo video if possible.</li>
+                <li>Ensure the team name matches your event registration.</li>
+              </ul>
+            </div>
             {/* Apply Event Cards inside the submission card when no eventId provided */}
             {!eventId && (
               <div>
@@ -284,7 +347,7 @@ export default function SubmissionsPage() {
             )}
             {/* Hide form until an event is selected */}
             {eventId && (
-              <>
+              <div className="max-w-3xl mx-auto space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="team">Team Name</Label>
                   <Input
@@ -308,21 +371,25 @@ export default function SubmissionsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="desc">Description</Label>
-                  <Textarea id="desc" placeholder="Short description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-28" />
+                  <Textarea id="desc" placeholder="Short description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-28 leading-6" />
+                  <p className="text-xs text-slate-500">What it does, how it works, and impact. 2–4 sentences.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="repo">GitHub Repo</Label>
                     <Input id="repo" placeholder="https://github.com/..." value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">Public or add access notes in description.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="docs">Docs</Label>
                     <Input id="docs" placeholder="Docs link (Notion, Google Doc, etc.)" value={docsUrl} onChange={(e) => setDocsUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">Optional, but helpful for judges.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="video">Video</Label>
                     <Input id="video" placeholder="Demo video URL (YouTube, Drive)" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">60–120s demo highlighting what matters.</p>
                   </div>
                 </div>
 
@@ -332,7 +399,7 @@ export default function SubmissionsPage() {
                   </Button>
                   {submitMsg && <span className="text-sm text-slate-600">{submitMsg}</span>}
                 </div>
-              </>
+              </div>
             )}
 
             {event && (

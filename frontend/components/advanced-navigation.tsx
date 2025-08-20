@@ -254,6 +254,8 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
         isScrolled ? "bg-white/95 backdrop-blur-xl shadow-lg border-b" : "bg-white/80 backdrop-blur-xl"
       }`}
     >
+      {/* Top gradient accent bar */}
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500" />
       <div className="container mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14 md:h-16">
           {/* Logo */}
@@ -400,12 +402,20 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
               ) : (
                 <>
                   <Link href="/auth/login">
-                    <Button variant="outline" size="sm" className="min-h-[40px] px-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[40px] px-4 border-2 border-slate-300 hover:border-slate-400 transform-gpu transition-all hover:-translate-y-0.5"
+                    >
                       Sign in
                     </Button>
                   </Link>
                   <Link href="/auth/register">
-                    <Button size="sm" className="min-h-[40px] px-4">
+                    <Button
+                      size="sm"
+                      variant="cta"
+                      className="min-h-[40px] px-4 shadow-emerald-600/40 ring-2 ring-emerald-300/60 hover:ring-emerald-400/80 transform-gpu transition-all hover:-translate-y-0.5"
+                    >
                       Sign up
                     </Button>
                   </Link>

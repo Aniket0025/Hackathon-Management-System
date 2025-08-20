@@ -6,13 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Switch } from "@/components/ui/switch"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Mail, Building2, MapPin, Phone, CalendarClock, ShieldCheck, Lock, Github, Linkedin, Globe } from "lucide-react"
+import { User, Mail, Building2, MapPin, Phone, CalendarClock, ShieldCheck, Github, Linkedin, Globe } from "lucide-react"
 
 type Me = {
   _id: string
@@ -309,7 +308,7 @@ export default function ProfilePage() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Overview */}
-            <Card className="lg:col-span-1 glass-card">
+            <Card className="lg:col-span-2 glass-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="w-5 h-5 text-cyan-600" />
@@ -357,96 +356,75 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-700"><Github className="w-4 h-4" /> GitHub</div>
+                      {(me as any)?.social?.github ? (
+                        <a
+                          href={normalizeUrl((me as any)?.social?.github)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate max-w-[60%] text-right text-blue-600 hover:underline"
+                          title={(me as any)?.social?.github}
+                        >
+                          {(me as any)?.social?.github}
+                        </a>
+                      ) : (
+                        <span className="truncate max-w-[60%] text-right text-slate-400">Not connected</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-700"><Linkedin className="w-4 h-4" /> LinkedIn</div>
+                      {(me as any)?.social?.linkedin ? (
+                        <a
+                          href={normalizeUrl((me as any)?.social?.linkedin)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate max-w-[60%] text-right text-blue-600 hover:underline"
+                          title={(me as any)?.social?.linkedin}
+                        >
+                          {(me as any)?.social?.linkedin}
+                        </a>
+                      ) : (
+                        <span className="truncate max-w-[60%] text-right text-slate-400">Not connected</span>
+                      )}
+                    </div>
+                  </div>
                   <Button onClick={() => setOpen(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 w-full">Edit Profile</Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Activity */}
-            <Card className="lg:col-span-2 glass-card">
-              <CardHeader>
-                <CardTitle>Activity</CardTitle>
-                <CardDescription>Recent account activity</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {["Logged in", "Viewed Community page", "Updated profile"].map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-lg glass-panel flex items-center justify-between">
-                    <span>{item}</span>
-                    <span className="text-sm text-slate-500">Just now</span>
+            
+
+            {/* Profile completion (hidden for judges) */}
+            {(((me as any)?.role || "").toLowerCase() !== "judge") && (
+              <Card className="lg:col-span-1 glass-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    Profile Completion
+                  </CardTitle>
+                  <CardDescription>Improve your visibility</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full w-2/3 bg-gradient-to-r from-cyan-500 to-blue-500" />
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                  <ul className="text-sm text-slate-600 list-disc pl-5 space-y-1">
+                    <li>Add your location</li>
+                    <li>Connect GitHub/LinkedIn</li>
+                    <li>Write a short bio</li>
+                  </ul>
+                  <Button variant="outline" className="w-full" onClick={() => setParticipantOpen(true)}>Update Profile</Button>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Profile completion */}
-            <Card className="lg:col-span-1 glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  Profile Completion
-                </CardTitle>
-                <CardDescription>Improve your visibility</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full w-2/3 bg-gradient-to-r from-cyan-500 to-blue-500" />
-                </div>
-                <ul className="text-sm text-slate-600 list-disc pl-5 space-y-1">
-                  <li>Add your location</li>
-                  <li>Connect GitHub/LinkedIn</li>
-                  <li>Write a short bio</li>
-                </ul>
-                <Button variant="outline" className="w-full" onClick={() => setParticipantOpen(true)}>Update Profile</Button>
-              </CardContent>
-            </Card>
+            
 
-            {/* Social links */}
-            <Card className="lg:col-span-1 glass-card">
-              <CardHeader>
-                <CardTitle>Social Links</CardTitle>
-                <CardDescription>Showcase your work</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-700"><Github className="w-4 h-4" /> GitHub</div>
-                  <Button variant="outline" size="sm" onClick={() => openOrEdit((me as any)?.social?.github)}>
-                    {(me as any)?.social?.github ? 'View' : 'Connect'}
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-700"><Linkedin className="w-4 h-4" /> LinkedIn</div>
-                  <Button variant="outline" size="sm" onClick={() => openOrEdit((me as any)?.social?.linkedin)}>
-                    {(me as any)?.social?.linkedin ? 'View' : 'Connect'}
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-700"><Globe className="w-4 h-4" /> Website</div>
-                  <Button variant="outline" size="sm" onClick={() => openOrEdit((me as any)?.social?.website)}>
-                    {(me as any)?.social?.website ? 'View' : 'Add'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Security quick settings */}
-            <Card className="lg:col-span-1 glass-card">
-              <CardHeader>
-                <CardTitle>Security</CardTitle>
-                <CardDescription>Keep your account safe</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-700"><Lock className="w-4 h-4" /> Two-factor auth</div>
-                  <Switch />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-700"><ShieldCheck className="w-4 h-4" /> Last login</div>
-                  <span className="text-slate-500">Just now</span>
-                </div>
-                <Button variant="outline" size="sm" className="w-full">Change password</Button>
-              </CardContent>
-            </Card>
+            
           </div>
         )}
         {/* Edit Profile Dialog */}
