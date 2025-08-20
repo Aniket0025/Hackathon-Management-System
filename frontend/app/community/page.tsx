@@ -450,7 +450,7 @@ export default function CommunityPage() {
           {([
             { key: 'announcements', label: 'Announcements' },
             { key: 'qa', label: 'Q&A' },
-            { key: 'posts', label: 'Posts' },
+            { key: 'posts', label: 'Feedback' },
           ] as const).map(tab => (
             <button
               key={tab.key}

@@ -225,18 +225,20 @@ export default function EventsPage() {
               </Button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={showRegisteredOnly ? 'default' : 'outline'}
-              className={showRegisteredOnly ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
-              onClick={() => setShowRegisteredOnly((v) => !v)}
-              disabled={!authedEmail}
-              title={authedEmail ? 'Show only events you have registered for' : 'Login required to filter by registered'}
-            >
-              Registered
-            </Button>
-          </div>
+          {initialized && role !== 'judge' && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={showRegisteredOnly ? 'default' : 'outline'}
+                className={showRegisteredOnly ? 'bg-cyan-600 hover:bg-cyan-700' : ''}
+                onClick={() => setShowRegisteredOnly((v) => !v)}
+                disabled={!authedEmail}
+                title={authedEmail ? 'Show only events you have registered for' : 'Login required to filter by registered'}
+              >
+                Registered
+              </Button>
+            </div>
+          )}
           {/* Organizer view toggle removed as requested */}
         </div>
 
