@@ -44,7 +44,7 @@ export default function AnimatedMarquee({ items = DEFAULT_ITEMS, speed = 22 }: M
       }}
     >
       <div className="flex items-center gap-6 md:gap-10 animate-marquee will-change-transform" role="list">
-        {[...items, ...items].map((node, idx) => (
+        {items.map((node, idx) => (
           <div role="listitem" key={idx} className="opacity-100 transition-transform duration-200 hover:scale-[1.04] hover:shadow-md rounded-lg">
             {node}
           </div>
@@ -54,7 +54,7 @@ export default function AnimatedMarquee({ items = DEFAULT_ITEMS, speed = 22 }: M
       <style jsx>{`
         @keyframes marquee {
           from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
+          to { transform: translateX(-100%); }
         }
         .animate-marquee {
           width: max-content;

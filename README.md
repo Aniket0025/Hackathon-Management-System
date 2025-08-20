@@ -13,6 +13,43 @@ A full-stack web app for managing hackathons: events, registrations, teams, subm
 - Event pages, team info, and submission forms
 - Community & notifications (backend routes in `backend/src/`)
 
+# 🔑 Demo Access Accounts
+
+Use the following demo accounts to explore the project features.  
+These are **test accounts only** and should be used for demonstration purposes.
+
+---
+
+## 👨‍💼 Organizers
+| Email | Password | Role |
+|-------|----------|------|
+| aniketyadav25012005@gmail.com | 123456789 | Organizer |
+
+
+---
+
+## 🧑‍🤝‍🧑 Participants
+| Email | Password | Role |
+|-------|----------|------|
+| gadesujit106@gmail.com | 123456789 | Participant |
+| rmane0069@gmail.com     | 123456789 | Participant |
+
+---
+
+## ⚖️ Judges
+| Email | Password | Role |
+|-------|----------|------|
+| omkarmalakgade123@gmail.com | 123456789 | Judge |
+| chaitanyauthale5@gmail.com  | 123456789 | Judge |
+| ompatil123@gmail.com        | 123456789 | Judge |
+| aniket93yadav@gmail.com     | 123456789 | Judge |
+
+---
+
+📌 **Note:**  
+All demo accounts use the same password: **`123456789`**
+
+
 ## Monorepo Structure
 ```
 .
@@ -196,11 +233,38 @@ db.events.insertOne({ name: 'Sample Hack', startDate: new Date(), endDate: new D
 
 Or add a small script under `backend/src/utils/seed.js` and run it with `node` after setting env.
 
-## Screenshots
-Add screenshots to `frontend/public/` and reference them here:
+## 📸 Screenshots
 
-![My Applications](frontend/public/ai-team.png)
-![Analytics](frontend/public/abstract-geometric-shapes.png)
+### 🔹 Dashboard & Event Management
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8df9d41a-2db9-40a6-a682-426b8111d836" alt="Dashboard" width="45%"/>
+  <img src="https://github.com/user-attachments/assets/26a7eee8-b97c-4d94-9dd3-91e35e64e14f" alt="Event Management" width="45%"/>
+</p>
+
+### 🔹 Event Registration & Judge Assigning
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/32a950d3-8e5c-4ec7-912f-05191baf65fa" alt="Event Registration" width="45%"/>
+  <img src="https://github.com/user-attachments/assets/a8e2762f-f092-436a-9d6d-5eae37e1dbb6" alt="Judge Assigning" width="45%"/>
+</p>
+
+### 🔹 Event Details
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8577405e-8023-43e7-b900-b19168cdd758" alt="Event Details 1" width="45%"/>
+  <img src="https://github.com/user-attachments/assets/f496c852-3632-4763-ab57-2e62deb7aad6" alt="Event Details 2" width="45%"/>
+</p>
+
+### 🔹 Analytics
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3079728d-df23-49de-af5d-35ddb1bc0fcc" alt="Analytics 1" width="45%"/>
+
+  <img src="https://github.com/user-attachments/assets/53ed0183-9c4c-4330-b53f-7355551f7b4e" alt="Analytics 2" width="45%"/>
+</p>
+
+
+
+
+
+
 
 ## Security Notes
 - Never commit real secrets. Use environment variables.

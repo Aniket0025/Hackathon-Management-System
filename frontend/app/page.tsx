@@ -70,25 +70,39 @@ export default function HomePage() {
       }
     } catch {}
 
-    // Animate counters (lighter): single RAF-driven tween
-    const targets = { events: 2500, participants: 150000, projects: 45000, success: 98 }
-    const start = performance.now()
-    const duration = 800 // shorter, smoother
-    function tick(now: number) {
-      const t = Math.min(1, (now - start) / duration)
-      setStats({
-        events: Math.floor(targets.events * t),
-        participants: Math.floor(targets.participants * t),
-        projects: Math.floor(targets.projects * t),
-        success: Math.floor(targets.success * t),
-      })
-      if (t < 1) requestAnimationFrame(tick)
+    // Fetch real-time stats from backend and poll periodically
+    const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+    let pollId: number | undefined
+
+    async function fetchRealtimeStats() {
+      try {
+        const [dashRes, eventsRes] = await Promise.all([
+          fetch(`${base}/api/analytics/dashboard`).then(r => r.ok ? r.json() : Promise.reject(r)),
+          fetch(`${base}/api/analytics/events`).then(r => r.ok ? r.json() : Promise.reject(r)),
+        ])
+
+        const eventsCount = Array.isArray(eventsRes?.data) ? eventsRes.data.length : 0
+        const totalParticipants = dashRes?.data?.totalParticipants ?? 0
+        const projectsSubmitted = dashRes?.data?.projectsSubmitted ?? 0
+        const successRate = Math.round((dashRes?.data?.successRate ?? 0))
+
+        setStats({
+          events: eventsCount,
+          participants: totalParticipants,
+          projects: projectsSubmitted,
+          success: successRate,
+        })
+      } catch (e) {
+        // keep previous stats on error
+      }
     }
-    requestAnimationFrame(tick)
+
+    fetchRealtimeStats()
+    pollId = window.setInterval(fetchRealtimeStats, 30000) // refresh every 30s
 
     return () => {
-      // no intervals to clear
       window.removeEventListener("resize", checkMobile)
+      if (pollId) window.clearInterval(pollId)
     }
   }, [])
 
@@ -106,8 +120,6 @@ export default function HomePage() {
     io.observe(el)
     return () => io.unobserve(el)
   }, [])
-
-  
 
   return (
     <div className="min-h-screen bg-white">
@@ -416,7 +428,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-slate-400 text-sm mb-4 md:mb-0">© 2024 HackHost. Built for the innovation community.</p>
+            <p className="text-slate-400 text-sm mb-4 md:mb-0"> 2024 HackHost. Built for the innovation community.</p>
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="bg-green-100 text-green-700">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
