@@ -106,7 +106,7 @@ export default function OrganizerAssignJudgesPage() {
 
   if (role !== null && !isOrganizer) {
     return (
-      <DashboardLayout hideSidebar>
+      <DashboardLayout hideSidebar hideTopActions>
         <div className="p-6">
           <Card>
             <CardHeader>
@@ -120,7 +120,7 @@ export default function OrganizerAssignJudgesPage() {
   }
 
   return (
-    <DashboardLayout hideSidebar>
+    <DashboardLayout hideSidebar hideTopActions>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Assign Judges</h1>

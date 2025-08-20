@@ -7,24 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
-  Calendar,
   Users,
-  Trophy,
   Zap,
-  Shield,
-  Globe,
-  Brain,
   Rocket,
   Star,
   ArrowRight,
-  Play,
-  CheckCircle,
-  TrendingUp,
-  Award,
   Sparkles,
-  Bot,
-  Network,
-  BarChart3,
   Activity,
 } from "lucide-react"
 import Link from "next/link"
@@ -45,7 +33,6 @@ const InteractiveStatsDashboard = dynamic(
 
 export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
-  const [activeFeature, setActiveFeature] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [startHref, setStartHref] = useState<string>("/auth/register")
   const feedRef = useRef<HTMLDivElement | null>(null)
@@ -120,44 +107,7 @@ export default function HomePage() {
     return () => io.unobserve(el)
   }, [])
 
-  const advancedFeatures = [
-    {
-      icon: Brain,
-      title: "AI-Powered Team Matching",
-      description: "Smart algorithms match participants based on skills, interests, and project goals",
-      gradient: "from-purple-500 to-pink-500",
-    },
-    {
-      icon: Bot,
-      title: "Automated Plagiarism Detection",
-      description: "Advanced AI scans submissions for originality and provides detailed reports",
-      gradient: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: Network,
-      title: "Real-Time Collaboration Hub",
-      description: "Live coding environments, video calls, and instant messaging integrated",
-      gradient: "from-green-500 to-emerald-500",
-    },
-    {
-      icon: BarChart3,
-      title: "Advanced Analytics Dashboard",
-      description: "Deep insights into participant behavior, engagement, and success metrics",
-      gradient: "from-orange-500 to-red-500",
-    },
-    {
-      icon: Award,
-      title: "Dynamic Certificate Generation",
-      description: "AI-generated certificates with blockchain verification and NFT integration",
-      gradient: "from-indigo-500 to-purple-500",
-    },
-    {
-      icon: Sparkles,
-      title: "Intelligent Project Recommendations",
-      description: "ML-powered suggestions for project ideas, resources, and mentorship",
-      gradient: "from-pink-500 to-rose-500",
-    },
-  ]
+  
 
   return (
     <div className="min-h-screen bg-white">
@@ -226,17 +176,6 @@ export default function HomePage() {
                 <ArrowRight className="w-4 md:w-5 h-4 md:h-5" />
               </Link>
             </Button>
-            <Button
-              size={isMobile ? "default" : "xl"}
-              variant="outline"
-              asChild
-              className="px-7 md:px-9 py-4 md:py-5 text-base md:text-lg min-h-[52px] border-2 border-slate-300 hover:border-slate-400 transform-gpu transition-all hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0"
-            >
-              <Link href="/demo" className="flex items-center justify-center gap-2">
-                <Play className="w-4 md:w-5 h-4 md:h-5" />
-                Watch Demo
-              </Link>
-            </Button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto px-4">
@@ -289,89 +228,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section
-        id="ai-features"
-        className="relative py-16 md:py-24 px-4 sm:px-6 bg-white"
-      >
-        <div className="container mx-auto">
-          <div className="text-center mb-12 md:mb-16">
-            <Badge
-              variant="secondary"
-              className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 mb-4 px-3 py-1.5 text-sm"
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              AI-Powered Intelligence
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-4 md:mb-6 px-2">
-              Advanced Features That
-              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent block mt-2">
-                Think Ahead
-              </span>
-            </h2>
-            <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto px-4">
-              Harness the power of artificial intelligence to create smarter, more engaging hackathon experiences
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="space-y-4 md:space-y-6">
-              {advancedFeatures.map((feature, index) => (
-                <Card
-                  key={index}
-                  className={`border border-slate-200 shadow-sm transition-transform duration-300 transform-gpu hover:-translate-y-1 hover:shadow-2xl ${
-                    activeFeature === index
-                      ? "bg-white ring-1 ring-cyan-500"
-                      : "bg-white"
-                  }`}
-                  onClick={() => setActiveFeature(index)}
-                >
-                  <CardHeader className="pb-3 p-4 md:p-6">
-                    <div className="flex items-center gap-3 md:gap-4">
-                      <div
-                        className={`w-10 md:w-12 h-10 md:h-12 rounded-xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-sm flex-shrink-0`}
-                      >
-                        <feature.icon className="w-5 md:w-6 h-5 md:h-6 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base md:text-lg font-bold text-slate-900 leading-tight">
-                          {feature.title}
-                        </CardTitle>
-                        <CardDescription className="text-slate-600 text-sm md:text-base leading-relaxed">
-                          {feature.description}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-
-            <div className="relative mt-8 lg:mt-0">
-              <div className="w-full h-64 md:h-96 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl shadow-md overflow-hidden">
-                <div className="relative h-full flex flex-col items-center justify-center gap-4 md:gap-6 px-6 text-center">
-                  {/* soft glow */}
-                  <div className="absolute w-40 md:w-64 h-40 md:h-64 rounded-full bg-cyan-200/30 blur-3xl" />
-                  <div className={`relative w-24 md:w-32 h-24 md:h-32 rounded-full bg-gradient-to-r ${advancedFeatures[activeFeature].gradient} flex items-center justify-center shadow-lg`}> 
-                    {React.createElement(advancedFeatures[activeFeature].icon, {
-                      className: "w-12 md:w-16 h-12 md:h-16 text-white",
-                    })}
-                    {/* subtle animated ring */}
-                    <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-white/30 animate-pulse" />
-                  </div>
-                  <div className="relative">
-                    <div className="text-lg md:text-2xl font-semibold text-slate-900">
-                      {advancedFeatures[activeFeature].title}
-                    </div>
-                    <div className="text-slate-600 text-sm md:text-base max-w-md md:max-w-lg">
-                      {advancedFeatures[activeFeature].description}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      
 
       {/* Add new section after AI features */}
       <section className="py-24 px-4">
@@ -406,82 +263,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Enhanced Features Grid */}
-      <section id="features" className="py-16 md:py-24 px-4 sm:px-6">
-        <div className="container mx-auto">
-          <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-4 md:mb-6 px-2">
-              Everything You Need to
-              <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent block mt-2">
-                Run Successful Events
-              </span>
-            </h2>
-            <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto px-4">
-              From registration to judging, we've revolutionized every aspect of hackathon management
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {[
-              {
-                icon: Calendar,
-                title: "Smart Event Management",
-                description: "AI-assisted event configuration with automated scheduling and resource optimization",
-                gradient: "from-blue-500 to-cyan-500",
-              },
-              {
-                icon: Users,
-                title: "Intelligent Team Formation",
-                description: "ML-powered matching system that creates balanced teams based on skills and goals",
-                gradient: "from-purple-500 to-pink-500",
-              },
-              {
-                icon: Trophy,
-                title: "Advanced Judging System",
-                description: "Multi-round evaluation with bias detection and automated scoring algorithms",
-                gradient: "from-amber-500 to-orange-500",
-              },
-              {
-                icon: Shield,
-                title: "Enterprise Security",
-                description: "Bank-level security with blockchain verification and encrypted communications",
-                gradient: "from-green-500 to-emerald-500",
-              },
-              {
-                icon: Globe,
-                title: "Real-Time Collaboration",
-                description: "Integrated development environments with live coding and instant feedback",
-                gradient: "from-indigo-500 to-purple-500",
-              },
-              {
-                icon: TrendingUp,
-                title: "Predictive Analytics",
-                description: "AI-driven insights that predict success patterns and optimize event outcomes",
-                gradient: "from-rose-500 to-pink-500",
-              },
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="border border-slate-200 bg-gradient-to-br from-white to-slate-50 transition-all duration-300 transform-gpu hover:-translate-y-1 hover:shadow-2xl [transform:perspective(1200px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(1200px)_rotateX(2deg)_rotateY(2deg)]"
-              >
-                <CardHeader className="pb-4 md:pb-6 p-4 md:p-6">
-                  <div
-                    className={`w-12 md:w-16 h-12 md:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-lg mb-3 md:mb-4`}
-                  >
-                    <feature.icon className="w-6 md:w-8 h-6 md:h-8 text-white" />
-                  </div>
-                  <CardTitle className="text-lg md:text-xl font-bold text-slate-900 leading-tight">
-                    {feature.title}
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 leading-relaxed text-sm md:text-base">
-                    {feature.description}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      
 
       {/* Testimonials Carousel */}
       <section className="py-16 md:py-24 px-4 sm:px-6 bg-gradient-to-b from-white to-slate-50">
@@ -550,14 +332,7 @@ export default function HomePage() {
                     Start Free Trial
                   </Link>
                 </Button>
-                <Button
-                  size="xl"
-                  variant="outline"
-                  asChild
-                  className="px-8 py-5 text-lg border-2 border-slate-300 hover:border-slate-400 transform-gpu transition-all hover:-translate-y-1 hover:scale-[1.03] active:translate-y-0"
-                >
-                  <Link href="/demo">Schedule Demo</Link>
-                </Button>
+                
               </div>
             </CardContent>
           </Card>
