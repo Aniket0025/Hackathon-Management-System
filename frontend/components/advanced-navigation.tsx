@@ -383,19 +383,6 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                         </Link>
                       </DropdownMenuItem>
                     )}
-                    {role === 'participant' && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href="http://localhost:3001/dashboard/participant"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center"
-                        >
-                          <Users className="w-4 h-4 mr-2" />
-                          Participant Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
                       Logout

@@ -3,22 +3,38 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const JudgeAssignment = require('../models/JudgeAssignment');
 const Review = require('../models/Review');
+const { sendMail } = require('../utils/mailer');
 
 // POST /api/judges
 // body: { name?, email, password, eventId? }
 // Organizer-only
 async function createJudge(req, res, next) {
   try {
-    const { name, email, password, eventId } = req.body || {};
+    const { name, email, password, eventId, promoteIfExists } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: 'email and password are required' });
 
     let judge = await User.findOne({ email });
+    let createdNew = false;
     if (judge) {
       // If a user exists with this email, allow only if it's already a judge
-      if (judge.role !== 'judge') return res.status(409).json({ message: 'Email already in use by a non-judge account' });
+      if (judge.role !== 'judge') {
+        if (promoteIfExists === true) {
+          // Promote existing user to judge, optionally update password
+          if (password) {
+            const hash = await bcrypt.hash(password, 10);
+            judge.password = hash;
+          }
+          judge.role = 'judge';
+          if (name) judge.name = name;
+          await judge.save();
+        } else {
+          return res.status(409).json({ message: 'Email already in use by a non-judge account. Pass promoteIfExists=true to promote this user to judge.' });
+        }
+      }
     } else {
       const hash = await bcrypt.hash(password, 10);
       judge = await User.create({ name: name || email.split('@')[0], email, password: hash, role: 'judge' });
+      createdNew = true;
     }
 
     let assignment = null;
@@ -27,6 +43,55 @@ async function createJudge(req, res, next) {
       if (!event) return res.status(404).json({ message: 'Event not found' });
       if (String(event.organizer) !== String(req.user.id)) return res.status(403).json({ message: 'Forbidden: not your event' });
       assignment = await JudgeAssignment.create({ judge: judge._id, event: event._id, createdBy: req.user.id });
+
+      // Send email notification about account and assignment
+      try {
+        const subject = createdNew
+          ? `You have been invited as a Judge for ${event.title}`
+          : `You have been assigned as a Judge for ${event.title}`;
+        const lines = [];
+        lines.push(`Hello ${judge.name || 'Judge'},`);
+        if (createdNew) {
+          lines.push('An account has been created for you to judge hackathon submissions.');
+          lines.push('Login credentials:');
+          lines.push(`Email: ${email}`);
+          lines.push(`Password: ${password}`);
+        } else {
+          lines.push('You have been assigned to a new event as a judge.');
+          lines.push(`Email: ${email}`);
+          if (promoteIfExists === true && password) {
+            lines.push(`Temporary Password: ${password}`);
+          }
+        }
+        lines.push('');
+        lines.push('Event details:');
+        lines.push(`- Title: ${event.title}`);
+        if (event.startDate) lines.push(`- Start: ${new Date(event.startDate).toLocaleString()}`);
+        if (event.endDate) lines.push(`- End: ${new Date(event.endDate).toLocaleString()}`);
+        const text = lines.join('\n');
+        const html = `<p>${lines.map(l => l ? l.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '&nbsp;').join('</p><p>')}</p>`;
+        await sendMail({ to: email, subject, text, html });
+      } catch (mailErr) {
+        console.warn('[judgesController] Failed to send judge creation/assignment email:', mailErr.message);
+      }
+    }
+
+    // If a new judge was created and not assigned to an event, still send credentials email
+    if (createdNew && !eventId) {
+      try {
+        const subject = 'Your Judge Account Credentials';
+        const lines = [];
+        lines.push(`Hello ${judge.name || 'Judge'},`);
+        lines.push('An account has been created for you to judge hackathon submissions.');
+        lines.push('Login credentials:');
+        lines.push(`Email: ${email}`);
+        lines.push(`Password: ${password}`);
+        const text = lines.join('\n');
+        const html = `<p>${lines.map(l => l ? l.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '&nbsp;').join('</p><p>')}</p>`;
+        await sendMail({ to: email, subject, text, html });
+      } catch (mailErr) {
+        console.warn('[judgesController] Failed to send judge credentials email:', mailErr.message);
+      }
     }
 
     return res.status(201).json({
@@ -51,6 +116,24 @@ async function assignJudge(req, res, next) {
 
     if (String(event.organizer) !== String(req.user.id)) return res.status(403).json({ message: 'Forbidden: not your event' });
     const assignment = await JudgeAssignment.create({ judge: judge._id, event: event._id, createdBy: req.user.id });
+
+    // Send assignment email
+    try {
+      const subject = `You have been assigned as a Judge for ${event.title}`;
+      const lines = [];
+      lines.push(`Hello ${judge.name || 'Judge'},`);
+      lines.push('You have been assigned to an event as a judge.');
+      lines.push('');
+      lines.push('Event details:');
+      lines.push(`- Title: ${event.title}`);
+      if (event.startDate) lines.push(`- Start: ${new Date(event.startDate).toLocaleString()}`);
+      if (event.endDate) lines.push(`- End: ${new Date(event.endDate).toLocaleString()}`);
+      const text = lines.join('\n');
+      const html = `<p>${lines.map(l => l ? l.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '&nbsp;').join('</p><p>')}</p>`;
+      await sendMail({ to: judge.email, subject, text, html });
+    } catch (mailErr) {
+      console.warn('[judgesController] Failed to send judge assignment email:', mailErr.message);
+    }
     return res.status(201).json({ assignment });
   } catch (err) { next(err); }
 }
