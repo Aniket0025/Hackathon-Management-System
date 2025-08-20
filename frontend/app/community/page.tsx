@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 type Post = { id: string; title: string; author: string; likes: number; body?: string }
 type Announcement = { id: string; title: string; body: string; author?: string; createdAt?: string; pinned?: boolean; bannerUrl?: string }
-type Answer = { id?: string; body: string; author: string; createdAt?: string; upvotes?: number }
+type Answer = { id?: string; body: string; author: any; createdAt?: string; upvotes?: number }
 type Question = { id: string; title: string; body: string; author: string; createdAt?: string; tags?: string[]; upvotes?: number; solved?: boolean; answers?: Answer[] }
 
 export default function CommunityPage() {
@@ -45,6 +45,14 @@ export default function CommunityPage() {
   const [qBody, setQBody] = useState("")
   const [qTags, setQTags] = useState("")
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({})
+
+  // Prefer human name/email if author is an object; otherwise fallback to string
+  const displayAuthorName = (val: any): string => {
+    if (!val) return 'Unknown'
+    if (typeof val === 'string') return val
+    // try common fields
+    return String(val.name || val.fullName || val.username || val.email || val._id || val.id || 'Unknown')
+  }
 
   // UI utilities
   const [q, setQ] = useState("")
@@ -583,7 +591,7 @@ export default function CommunityPage() {
                       <div className="space-y-2 mb-3">
                         {(q.answers).map((a, idx) => (
                           <div key={(a.id || '') + idx} className="text-sm text-slate-700 border border-slate-200 rounded p-2 bg-white/60">
-                            <div className="text-slate-500 text-xs mb-1">Answer by {a.author}</div>
+                            <div className="text-slate-500 text-xs mb-1">Answer by {displayAuthorName(a.author)}</div>
                             <div>{a.body}</div>
                           </div>
                         ))}
