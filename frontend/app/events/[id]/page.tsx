@@ -289,6 +289,16 @@ export default function EventDetailsPage() {
                 </div>
               )}
               <div className="border-t pt-6" />
+              {/* Rules */}
+              {event.rules && (
+                <div className="pt-6">
+                  <h3 className="text-lg font-semibold mb-3">Rules</h3>
+                  <div className="text-slate-700 whitespace-pre-wrap">
+                    {event.rules}
+                  </div>
+                </div>
+              )}
+              <div className="border-t pt-6" />
             {/* Prizes */}
             {event.prizes && event.prizes.length > 0 && (
               <div className="pt-6">
@@ -384,9 +394,6 @@ export default function EventDetailsPage() {
                 </Button>
               ) : (
                 <div className="flex gap-3">
-                  <Button asChild className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                    <Link prefetch href={`/events/${event._id}/teams`}>View Teams</Link>
-                  </Button>
                   <Button asChild variant="outline">
                     <Link prefetch href={`/events/${event._id}/edit`}>Edit</Link>
                   </Button>

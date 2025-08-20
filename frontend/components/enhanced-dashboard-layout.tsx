@@ -45,7 +45,6 @@ export default function EnhancedDashboardLayout({ children, userRole = "particip
     participant: [
       { name: "Dashboard", href: "/dashboard/participant", icon: Home },
       { name: "My Events", href: "/dashboard/participant/events", icon: Calendar },
-      { name: "Teams", href: "/dashboard/participant/teams", icon: Users },
       { name: "Submissions", href: "/dashboard/participant/submissions", icon: FileText },
       { name: "Communications", href: "/dashboard/communications", icon: MessageSquare },
       { name: "Profile", href: "/dashboard/participant/profile", icon: Settings },

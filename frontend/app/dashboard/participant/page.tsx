@@ -166,10 +166,9 @@ export default function ParticipantDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-white shadow-sm border">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm border">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="events">My Events</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="invites">
               Invites
               {mockTeamInvites.length > 0 && (
@@ -403,9 +402,6 @@ export default function ParticipantDashboard() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium font-sans">Team: {event.team.name}</h4>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/teams/${event.team.id}`}>Manage Team</Link>
-                          </Button>
                         </div>
                         <div className="flex items-center gap-2">
                           {event.team.members.map((member) => (
@@ -422,9 +418,6 @@ export default function ParticipantDashboard() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground font-serif">Individual participation</span>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/events/${event.id}/teams`}>Find Team</Link>
-                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -433,51 +426,6 @@ export default function ParticipantDashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="teams" className="space-y-6">
-            <div className="grid gap-6">
-              {mockRegisteredEvents
-                .filter((event) => event.team)
-                .map((event) => (
-                  <Card key={event.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="font-sans">{event.team!.name}</CardTitle>
-                          <CardDescription className="font-serif">For {event.name}</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/dashboard/teams/${event.team!.id}`}>
-                            <Settings className="w-4 h-4 mr-1" />
-                            Manage
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium font-sans mb-2">Team Members</h4>
-                          <div className="space-y-2">
-                            {event.team!.members.map((member) => (
-                              <div key={member.id} className="flex items-center gap-3">
-                                <Avatar className="w-8 h-8">
-                                  <AvatarImage src={member.avatar || "/placeholder.svg"} alt={member.name} />
-                                  <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium font-sans">{member.name}</p>
-                                  <p className="text-sm text-muted-foreground font-serif">{member.role}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          </TabsContent>
 
           <TabsContent value="invites" className="space-y-6">
             {mockTeamInvites.length > 0 ? (

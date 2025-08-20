@@ -41,7 +41,6 @@ type NavItem = { href: string; label: string; icon: React.ComponentType<{ classN
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/events", label: "Events", icon: Calendar },
-  { href: "/teams", label: "Teaming", icon: Users },
   { href: "/my-apply", label: "My Apply", icon: Users },
   { href: "/community", label: "Community", icon: MessageSquare },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
@@ -150,9 +149,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   // Hide specific items for unauthenticated users; move '/my-apply' into profile dropdown
   const baseVisibleItems = navigationItems.filter((item) => {
     if (item.href === '/my-apply') return false
-    if (!isAuthed && (item.href === '/teams' || item.href === '/analytics')) return false
-    if (role === 'organizer' && item.href === '/teams') return false
-    if (role === 'judge' && item.href === '/teams') return false
+    if (!isAuthed && item.href === '/analytics') return false
     return true
   })
 
@@ -202,14 +199,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                 }`}
               >
                 <item.icon className="w-4 h-4" />
-                {item.href === "/teams" ? (
-                  <span className="flex flex-col leading-tight">
-                    <span>{item.label}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-cyan-600/80">AI powered</span>
-                  </span>
-                ) : (
-                  item.label
-                )}
+                {item.label}
               </Link>
             ))}
           </nav>

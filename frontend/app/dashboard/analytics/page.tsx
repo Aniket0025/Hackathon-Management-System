@@ -8,7 +8,6 @@ import EnhancedDashboardLayout from "@/components/enhanced-dashboard-layout"
 import AdvancedAnalyticsDashboard from "@/components/advanced-analytics-dashboard"
 import { InteractiveStatsDashboard } from "@/components/interactive-stats-dashboard"
 import { RealTimeActivityFeed } from "@/components/real-time-activity-feed"
-import AITeamMatching from "@/components/ai-team-matching"
 import { BarChart3, TrendingUp, Users, Trophy, Calendar, Download, Share, Filter } from "lucide-react"
 
 export default function AnalyticsPage() {
@@ -43,11 +42,10 @@ export default function AnalyticsPage() {
 
         {/* Analytics Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 glass-card rounded-xl">
+          <TabsList className="grid w-full grid-cols-4 glass-card rounded-xl">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="participants">Participants</TabsTrigger>
-            <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
             <TabsTrigger value="real-time">Real-time</TabsTrigger>
           </TabsList>
 
@@ -192,10 +190,6 @@ export default function AnalyticsPage() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="ai-insights" className="space-y-6">
-            <AITeamMatching />
           </TabsContent>
 
           <TabsContent value="real-time" className="space-y-6">

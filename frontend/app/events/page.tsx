@@ -247,11 +247,7 @@ export default function EventsPage() {
                       Register
                     </Button>
                   )}
-                  {role === "organizer" && (
-                    <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700 transition-colors">
-                      <Link prefetch href={`/events/${ev._id}/teams`}>View Teams</Link>
-                    </Button>
-                  )}
+                  {/* Removed Organizer 'View Teams' link */}
                   <Button asChild size="sm" variant="outline" className="transition-colors">
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
