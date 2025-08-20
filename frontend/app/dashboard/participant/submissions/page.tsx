@@ -220,10 +220,8 @@ export default function SubmissionsPage() {
       const data = await res.json().catch(() => ({} as any))
       if (!res.ok) throw new Error(data?.message || "Submission failed")
       setSubmitMsg("Submitted successfully")
-      // Navigate to event page
-      if (typeof window !== "undefined") {
-        window.location.href = `/events/${eventId}`
-      }
+      // Navigate to event page (client-side)
+      router.push(`/events/${eventId}`)
     } catch (e: any) {
       setSubmitMsg(e?.message || "Submission failed")
     } finally {
@@ -255,6 +253,15 @@ export default function SubmissionsPage() {
             <CardDescription>Submit your project details for the selected event.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Helpful tips banner */}
+            <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-3 text-sm text-emerald-800">
+              <div className="font-medium mb-1">Tips for a great submission</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use a concise, descriptive title.</li>
+                <li>Include a repo link and a short demo video if possible.</li>
+                <li>Ensure the team name matches your event registration.</li>
+              </ul>
+            </div>
             {/* Apply Event Cards inside the submission card when no eventId provided */}
             {!eventId && (
               <div>
@@ -335,7 +342,7 @@ export default function SubmissionsPage() {
             )}
             {/* Hide form until an event is selected */}
             {eventId && (
-              <>
+              <div className="max-w-3xl mx-auto space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="team">Team Name</Label>
                   <Input
@@ -359,21 +366,25 @@ export default function SubmissionsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="desc">Description</Label>
-                  <Textarea id="desc" placeholder="Short description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-28" />
+                  <Textarea id="desc" placeholder="Short description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-28 leading-6" />
+                  <p className="text-xs text-slate-500">What it does, how it works, and impact. 2–4 sentences.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="repo">GitHub Repo</Label>
                     <Input id="repo" placeholder="https://github.com/..." value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">Public or add access notes in description.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="docs">Docs</Label>
                     <Input id="docs" placeholder="Docs link (Notion, Google Doc, etc.)" value={docsUrl} onChange={(e) => setDocsUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">Optional, but helpful for judges.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="video">Video</Label>
                     <Input id="video" placeholder="Demo video URL (YouTube, Drive)" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="h-10" />
+                    <p className="text-xs text-slate-500">60–120s demo highlighting what matters.</p>
                   </div>
                 </div>
 
@@ -383,7 +394,7 @@ export default function SubmissionsPage() {
                   </Button>
                   {submitMsg && <span className="text-sm text-slate-600">{submitMsg}</span>}
                 </div>
-              </>
+              </div>
             )}
 
             {event && (

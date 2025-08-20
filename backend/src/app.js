@@ -17,6 +17,7 @@ const judgesRoutes = require('./routes/judges');
 const notificationsRoutes = require('./routes/notifications');
 const evaluationsRoutes = require('./routes/evaluations');
 const invitesRoutes = require('./routes/invites');
+const paymentsRoutes = require('./routes/payments');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -89,6 +90,7 @@ app.use('/api/judges', judgesRoutes);
 app.use('/api/evaluations', evaluationsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/invites', invitesRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // 404 and error handler
 app.use(notFound);

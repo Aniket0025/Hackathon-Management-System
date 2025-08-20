@@ -44,6 +44,20 @@ async function registerForEvent(req, res, next) {
       if (!t.teamName) return res.status(400).json({ message: 'Team name is required for team registration' });
     }
 
+    // Enforce payment for paid events
+    const fee = Number(event.fees || 0);
+    if (fee > 0) {
+      const pay = payload.payment || {};
+      if (pay.status !== 'paid' || !pay.orderId || !pay.paymentId || !pay.signature) {
+        return res.status(400).json({ message: 'Payment is required for this event' });
+      }
+    } else {
+      // normalize free events
+      if (payload.payment && payload.payment.status !== 'free') {
+        payload.payment = { status: 'free', amount: 0, currency: 'INR' };
+      }
+    }
+
     // include eventName for easier filtering
     const reg = await Registration.create({ ...payload, event: id, eventName: event.title });
 
