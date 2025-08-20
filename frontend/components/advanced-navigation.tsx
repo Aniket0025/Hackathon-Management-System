@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SocketContext } from "@/components/realtime/socket-provider"
 
@@ -57,9 +58,11 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   // Notifications loaded from API
-  type Notif = { id: string; title: string; createdAt?: string; read?: boolean }
+  type Notif = { id: string; title: string; message?: string; type?: string; link?: string; createdAt?: string; read?: boolean }
   const [notifItems, setNotifItems] = useState<Notif[]>([])
   const notifications = notifItems.filter((n) => !n.read).length
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [selectedNotif, setSelectedNotif] = useState<Notif | null>(null)
   const [isScrolled, setIsScrolled] = useState(false)
   const scrollRaf = useRef<number | null>(null)
   const lastScrolled = useRef<boolean>(false)
@@ -141,7 +144,15 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
         if (!res.ok) { setNotifItems([]); return }
         const items = Array.isArray(data.notifications) ? data.notifications : []
         setNotifItems(
-          items.map((n: any) => ({ id: n._id || n.id, title: n.title || "Notification", createdAt: n.createdAt, read: !!n.read }))
+          items.map((n: any) => ({
+            id: n._id || n.id,
+            title: n.title || "Notification",
+            message: n.message || "",
+            type: n.type || "info",
+            link: n.link || "",
+            createdAt: n.createdAt,
+            read: Array.isArray(n.readBy) ? n.readBy.includes?.(n.userId) || false : !!n.read,
+          }))
         )
       } catch {
         setNotifItems([])
@@ -153,7 +164,15 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   useEffect(() => {
     if (!socket) return
     const onNew = (n: any) => {
-      setNotifItems((prev) => [{ id: n._id || n.id || crypto.randomUUID(), title: n.title || "Notification", createdAt: n.createdAt, read: false }, ...prev])
+      setNotifItems((prev) => [{
+        id: n._id || n.id || crypto.randomUUID(),
+        title: n.title || "Notification",
+        message: n.message || "",
+        type: n.type || "info",
+        link: n.link || "",
+        createdAt: n.createdAt,
+        read: false,
+      }, ...prev])
     }
     socket.on("notification:new", onNew)
     return () => {
@@ -187,6 +206,20 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   }
   const clearAll = () => setNotifItems([])
 
+  const openNotification = async (n: Notif) => {
+    setSelectedNotif(n)
+    setNotifOpen(true)
+    // Mark read optimistically and call API
+    setNotifItems((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (token && n.id) {
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        await fetch(`${base}/api/notifications/${n.id}/read`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } })
+      }
+    } catch {}
+  }
+
   // Hide specific items for unauthenticated users; move '/my-apply' into profile dropdown
   const baseVisibleItems = navigationItems.filter((item) => {
     if (item.href === '/my-apply') return false
@@ -207,6 +240,7 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
   }, [baseVisibleItems, role])
 
   return (
+    <>
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled ? "bg-white/95 backdrop-blur-xl shadow-lg border-b" : "bg-white/80 backdrop-blur-xl"
@@ -275,7 +309,11 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
                   ) : (
                     <div className="max-h-80 overflow-auto">
                       {notifItems.map((n) => (
-                        <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5">
+                        <DropdownMenuItem
+                          key={n.id}
+                          className="flex flex-col items-start gap-0.5 cursor-pointer"
+                          onClick={() => openNotification(n)}
+                        >
                           <span className={`text-sm ${n.read ? "text-slate-500" : "text-slate-900 font-medium"}`}>{n.title}</span>
                           <span className="text-xs text-slate-500">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</span>
                         </DropdownMenuItem>
@@ -440,6 +478,30 @@ const AdvancedNavigationComponent = ({ currentPath }: NavigationProps) => {
         )}
       </div>
     </header>
+
+    {/* Notification Details Dialog */}
+    <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{selectedNotif?.title ?? 'Notification'}</DialogTitle>
+          {selectedNotif && selectedNotif.createdAt ? (
+            <DialogDescription>{new Date(selectedNotif.createdAt as string).toLocaleString()}</DialogDescription>
+          ) : null}
+        </DialogHeader>
+        {selectedNotif && selectedNotif.message ? (
+          <div className="whitespace-pre-wrap text-slate-700">{selectedNotif.message}</div>
+        ) : null}
+        {selectedNotif && selectedNotif.link ? (
+          <div className="mt-3 text-sm">
+            <a className="text-cyan-700 underline" href={selectedNotif.link} target="_blank" rel="noreferrer">Open link</a>
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setNotifOpen(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 
