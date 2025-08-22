@@ -11,7 +11,7 @@ A full-stack web app for managing hackathons: events, registrations, teams, subm
 ### Development Team
 - **Aniket Yadav** - aniketyadav25012005@gmail.com
 - **Chaitnya Uthale** - chaitnyauthale5@gmail.com
-- **Pom** - pom72103@gmail.com
+- **Om Patil** - pom72103@gmail.com
 - **Sujit Gade** - gadesujit10@gmail.com
 
 ## Features
