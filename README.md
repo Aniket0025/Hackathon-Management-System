@@ -6,6 +6,14 @@ A full-stack web app for managing hackathons: events, registrations, teams, subm
 - Backend: Express.js, MongoDB (Mongoose)
 - Real-time: Socket.IO
 
+## Team
+
+### Development Team
+- **Aniket Yadav** - aniketyadav25012005@gmail.com
+- **Chaitnya Uthale** - chaitnyauthale5@gmail.com
+- **Pom** - pom72103@gmail.com
+- **Sujit Gade** - gadesujit10@gmail.com
+
 ## Features
 - Participant portal: register, view "My Applications", create/update submissions
 - Judge/Organizer: role-aware UI (organizer access restricted on My Apply)
