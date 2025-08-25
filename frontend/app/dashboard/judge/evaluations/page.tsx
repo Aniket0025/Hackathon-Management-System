@@ -117,12 +117,13 @@ export default function JudgeEvaluationsPage() {
             </h1>
             <p className="text-slate-600 mt-1">Review and score hackathon project submissions</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
+          <div className="flex gap-3">
+            <Button variant="outline" className="border-slate-300 hover:bg-slate-100 hover:text-slate-900">
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            <Button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700">
+            <Button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-200">
+              <FileText className="h-4 w-4 mr-2" />
               Evaluation Guidelines
             </Button>
           </div>
@@ -274,9 +275,9 @@ export default function JudgeEvaluationsPage() {
                           </Button>
                         )}
                         {evaluation.status === "completed" && (
-                          <Button variant="outline" className="flex-1 bg-transparent">
-                            <FileText className="h-4 w-4 mr-2" />
-                            View Report
+                          <Button variant="outline" size="sm" className="text-xs border-slate-300 hover:bg-slate-100 hover:text-slate-900">
+                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            View Details
                           </Button>
                         )}
                       </div>

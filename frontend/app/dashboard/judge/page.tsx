@@ -259,7 +259,7 @@ export default function JudgeDashboard() {
                               Results
                             </Link>
                           </Button>
-                          <Button size="sm" asChild>
+                          <Button size="sm" variant="cta" asChild>
                             <Link href={`/dashboard/judge/events/${event.id}`}>
                               <Eye className="w-4 h-4 mr-1" />
                               Review
