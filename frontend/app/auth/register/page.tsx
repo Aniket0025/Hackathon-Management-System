@@ -11,7 +11,9 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Mail, Lock, User, Github, Trophy, Calendar as CalendarIcon, Users as UsersIcon } from "lucide-react"
+import { Mail, Lock, User, Trophy, Calendar as CalendarIcon, Users as UsersIcon } from "lucide-react"
+import { app } from "@/lib/firebase"
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 import Link from "next/link"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -25,7 +27,9 @@ export default function RegisterPage() {
     role: "participant", // default selection
     agreeToTerms: false,
   })
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   // OTP state
@@ -36,6 +40,36 @@ export default function RegisterPage() {
 
   // API base
   const baseApi = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true)
+    try {
+      const auth = getAuth(app)
+      const provider = new GoogleAuthProvider()
+      const result = await signInWithPopup(auth, provider)
+      const fbUser = result.user
+      const idToken = await fbUser.getIdToken()
+
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+      const res = await fetch(`${base}/api/auth/firebase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, role: formData.role }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || "Google sign-in failed")
+
+      if (data?.token) {
+        try { localStorage.setItem("token", data.token) } catch {}
+      }
+      window.location.href = "/"
+    } catch (e) {
+      // Optionally surface error to user via toast later
+      console.error(e)
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   // Send OTP
   const handleSendOtp = async () => {
@@ -397,9 +431,18 @@ export default function RegisterPage() {
             <Button
               variant="outline"
               className="w-full font-serif bg-white text-slate-900 hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 shadow-sm"
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
             >
-              <Github className="mr-2 h-4 w-4" />
-              GitHub
+              {/* Google "G" logo */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 533.5 544.3" className="mr-2 h-4 w-4" aria-hidden>
+                <path fill="#4285F4" d="M533.5 278.4c0-18.6-1.5-37.4-4.7-55.6H272v105.2h146.9c-6.3 34-25 62.7-53.4 81.9v68.1h86.3c50.6-46.6 81.7-115.4 81.7-199.6z"/>
+                <path fill="#34A853" d="M272 544.3c72.9 0 134.2-24.1 178.9-65.3l-86.3-68.1c-24 16.1-54.8 25.5-92.6 25.5-71 0-131.2-47.9-152.7-112.2H30.7v70.5C76 492.6 168.4 544.3 272 544.3z"/>
+                <path fill="#FBBC05" d="M119.3 324.2c-10.2-30.5-10.2-63.5 0-94.1V159.6H30.7c-41.1 81.9-41.1 179.2 0 261.1l88.6-66.5z"/>
+                <path fill="#EA4335" d="M272 106.2c39.6-.6 77.8 14 106.7 41.1l79.6-79.6C403.9-9 317.5-22.1 239.3 6.8 161.1 35.6 103.1 97.1 79.3 176.1l90 70c21.2-64 81.5-109.3 152.7-110z"/>
+              </svg>
+              {googleLoading ? "Please wait..." : "Continue with Google"}
             </Button>
 
             <div className="text-center text-sm font-serif">
