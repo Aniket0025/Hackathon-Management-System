@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, MapPin, ArrowLeft, Pencil, Trash2, Crown, Ellipsis, Mail } from "lucide-react"
+import { toast } from "sonner"
 import Link from "next/link"
 import type { CheckedState } from "@radix-ui/react-checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -116,6 +117,7 @@ const makeEmptyMember = (): RegistrationData["teamInfo"]["members"][number] => (
 
 export default function EventRegistrationPage() {
   const routeParams = useParams() as { id?: string | string[] }
+  const router = useRouter()
   const id = Array.isArray(routeParams?.id) ? routeParams.id[0] : routeParams?.id
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -696,8 +698,16 @@ export default function EventRegistrationPage() {
           localStorage.removeItem(`draft_email_${id}`)
         }
       } catch {}
-      // Success -> redirect back to the event page
-      window.location.href = `/events/${id}`
+      // Success -> show confirmation then redirect to the event details page
+      try {
+        toast.success("Registration completed")
+      } catch {}
+      // Small delay so users can see the toast
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          router.push(`/events/${id}`)
+        }
+      }, 700)
     } catch (err: any) {
       setSubmitError(err?.message || "Registration failed")
     } finally {
@@ -1089,11 +1099,20 @@ export default function EventRegistrationPage() {
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="outline" onClick={() => setEditingMemberIndex(null)}>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => setEditingMemberIndex(null)}
+                          className="border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                        >
                           Cancel
                         </Button>
-                        <Button type="button" onClick={() => setEditingMemberIndex(null)}>
-                          Save changes
+                        <Button 
+                          type="button" 
+                          onClick={() => setEditingMemberIndex(null)}
+                          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-md hover:shadow-lg"
+                        >
+                          Save Changes
                         </Button>
                       </div>
                     </div>
@@ -1122,8 +1141,19 @@ export default function EventRegistrationPage() {
                         />
                       </div>
                       <div className="flex justify-end gap-2">
-                        <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-                        <Button type="button" onClick={handleSendInvite}>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => setInviteDialogOpen(false)}
+                          className="border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="button" 
+                          onClick={handleSendInvite}
+                          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-md hover:shadow-lg"
+                        >
                           <Mail className="w-4 h-4 mr-2" /> Send Invite
                         </Button>
                       </div>
@@ -1152,7 +1182,13 @@ export default function EventRegistrationPage() {
               </div>
             )}
             <div className="flex justify-end">
-              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={draftSaving || loading}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleSaveDraft} 
+                disabled={draftSaving || loading}
+                className="border-amber-200 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
+              >
                 {draftSaving ? "Saving..." : "Save as Draft"}
               </Button>
             </div>
@@ -1178,8 +1214,9 @@ export default function EventRegistrationPage() {
                     type="button"
                     onClick={() => { handlePayNow(); }}
                     disabled={payment.status==='paid' || isLoading || payment.verifying}
+                    className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg disabled:opacity-70 disabled:pointer-events-none"
                   >
-                    {payment.status==='paid' ? 'Payment Completed' : (isLoading || payment.verifying) ? 'Processing...' : 'Simulate Payment'}
+                    {payment.status==='paid' ? 'Payment Completed' : (isLoading || payment.verifying) ? 'Processing...' : 'Pay Now'}
                   </Button>
                 </div>
               </div>
@@ -1196,9 +1233,10 @@ export default function EventRegistrationPage() {
             <CardDescription className="font-serif">Please review and accept the following</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start space-x-2">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="terms"
+                className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                 checked={registrationData.agreements.termsAccepted}
                 onCheckedChange={(checked) => updateAgreements("termsAccepted", checked as boolean)}
               />
@@ -1214,9 +1252,10 @@ export default function EventRegistrationPage() {
               </Label>
             </div>
 
-            <div className="flex items-start space-x-2">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="codeOfConduct"
+                className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                 checked={registrationData.agreements.codeOfConductAccepted}
                 onCheckedChange={(checked) => updateAgreements("codeOfConductAccepted", checked as boolean)}
               />
@@ -1229,9 +1268,10 @@ export default function EventRegistrationPage() {
               </Label>
             </div>
 
-            <div className="flex items-start space-x-2">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="dataProcessing"
+                className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                 checked={registrationData.agreements.dataProcessingAccepted}
                 onCheckedChange={(checked) => updateAgreements("dataProcessingAccepted", checked as boolean)}
               />
@@ -1241,9 +1281,10 @@ export default function EventRegistrationPage() {
             </div>
 
             {/* Accept All */}
-            <div className="flex items-start space-x-2 pt-2 border-t mt-2">
+            <div className="flex items-start space-x-3 pt-2 border-t mt-2">
               <Checkbox
                 id="acceptAll"
+                className="h-5 w-5 border-2 border-slate-300 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                 checked={acceptAllState}
                 onCheckedChange={(val) => {
                   const v = val === true
@@ -1261,7 +1302,12 @@ export default function EventRegistrationPage() {
 
         {/* Submit - disabled if event not organizer-created or still loading/error */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-4">
-          <Button type="button" variant="outline" asChild>
+          <Button 
+            type="button" 
+            variant="outline" 
+            asChild
+            className="border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+          >
             <Link href={`/events/${id}`}>Cancel</Link>
           </Button>
           <Button
@@ -1269,6 +1315,7 @@ export default function EventRegistrationPage() {
             type="submit"
             disabled={isLoading || loading || !isFormValid()}
             title={formInvalidReason() || undefined}
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-md hover:shadow-lg disabled:opacity-70 disabled:pointer-events-none"
           >
             {isLoading ? "Registering..." : "Complete Registration"}
           </Button>

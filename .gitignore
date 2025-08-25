@@ -1,0 +1,42 @@
+# Node & builds
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.vercel/
+.turbo/
+.pnpm-store/
+# Logs
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env & secrets (DO NOT COMMIT)
+*.env
+*/.env
+**/.env
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Firebase/Google keys
+**/firebase-key.json
+**/*-firebase-adminsdk-*.json
+**/*.pem
+**/*.p12
+**/*.key
+
+# Misc
+.env.local
+.env.production
+.env.development
+.env.test
+# Explicit temp secret files
+backend/base64.txt

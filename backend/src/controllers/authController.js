@@ -6,6 +6,7 @@ const EmailVerification = require('../models/EmailVerification');
 const { sendMail } = require('../utils/mailer');
 const nodemailer = require('nodemailer');
 const { uploadBuffer, deleteByPublicId, tryExtractPublicIdFromUrl } = require('../utils/cloudinary');
+const { initFirebaseAdmin } = require('../utils/firebaseAdmin');
 
 async function register(req, res, next) {
   try {
@@ -90,7 +91,74 @@ async function updateMe(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, updateMe };
+// --- Firebase Login (Google) ---
+async function firebaseLogin(req, res, next) {
+  try {
+    const { idToken, role } = req.body;
+    if (!idToken) return res.status(400).json({ message: 'idToken is required' });
+
+    const admin = initFirebaseAdmin();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture } = {
+      uid: decoded.uid,
+      email: decoded.email,
+      name: decoded.name || decoded.firebase?.identities?.email?.[0] || 'User',
+      picture: decoded.picture,
+    };
+
+    if (!email) return res.status(400).json({ message: 'Email not present on Firebase token' });
+
+    // Validate role (if provided). For new users, role is required.
+    const allowedRoles = ['participant', 'organizer', 'judge'];
+    let requestedRole = undefined;
+    if (typeof role === 'string' && role.trim()) {
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+      requestedRole = role;
+    }
+
+    let user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      // New user must provide a valid role
+      if (!requestedRole) {
+        return res.status(400).json({ message: 'role is required for new Google users' });
+      }
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email,
+        role: requestedRole,
+        provider: 'google',
+        firebaseUid: uid,
+        // no password for google users
+      });
+    } else {
+      // If an existing local user, attach firebaseUid and mark provider if not set
+      let changed = false;
+      if (!user.firebaseUid) { user.firebaseUid = uid; changed = true; }
+      if (user.provider !== 'google') { user.provider = 'google'; changed = true; }
+      // If user's role is missing and a valid role is provided, set it once
+      if (!user.role && requestedRole) { user.role = requestedRole; changed = true; }
+      // Do not override an existing role
+      if (changed) await user.save();
+    }
+
+    // Optionally set avatarUrl if empty
+    if (picture && !user.avatarUrl) {
+      try { user.avatarUrl = picture; await user.save(); } catch (_) {}
+    }
+
+    const token = generateToken(user);
+    return res.json({
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      token,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, updateMe, firebaseLogin };
 
 // --- OTP Email Verification Flow ---
 

@@ -106,7 +106,7 @@ export default function OrganizerAssignJudgesPage() {
 
   if (role !== null && !isOrganizer) {
     return (
-      <DashboardLayout hideSidebar>
+      <DashboardLayout hideSidebar hideTopActions>
         <div className="p-6">
           <Card>
             <CardHeader>
@@ -120,7 +120,7 @@ export default function OrganizerAssignJudgesPage() {
   }
 
   return (
-    <DashboardLayout hideSidebar>
+    <DashboardLayout hideSidebar hideTopActions>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Assign Judges</h1>
@@ -172,7 +172,7 @@ export default function OrganizerAssignJudgesPage() {
                 <Button
                   type="submit"
                   disabled={!canSubmit || loading}
-                  className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-md rounded-md disabled:opacity-100 disabled:from-slate-300 disabled:to-slate-400 disabled:text-white disabled:cursor-not-allowed"
+                  className="bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-50 dark:text-gray-900 dark:hover:bg-gray-200 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {loading ? "Assigning..." : "Create & Assign"}
                 </Button>

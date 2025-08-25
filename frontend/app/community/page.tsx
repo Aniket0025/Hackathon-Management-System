@@ -752,11 +752,7 @@ export default function CommunityPage() {
             <div className="md:col-span-2">
               <Input placeholder="Search posts (title, body, author)" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            <div className="flex items-center gap-3 justify-between md:justify-end">
-              <label className="text-sm text-slate-700 flex items-center gap-2">
-                <input type="checkbox" className="h-4 w-4" checked={onlyWithBody} onChange={(e) => setOnlyWithBody(e.target.checked)} />
-                Only posts with body
-              </label>
+            <div className="flex items-center gap-3 justify-end flex-wrap">
               <select
                 className="border border-slate-300 rounded-md text-sm px-2 py-2 bg-white"
                 value={sort}
@@ -766,31 +762,29 @@ export default function CommunityPage() {
                 <option value="newest">Newest</option>
                 <option value="likes">Top liked</option>
               </select>
+              <Button
+                variant="cta"
+                onClick={() => {
+                  try {
+                    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+                    if (!token) {
+                      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                      return
+                    }
+                    setOpen(true)
+                  } catch {
+                    window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
+                  }
+                }}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />New Post
+              </Button>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {/* Posts list */}
             <div className="md:col-span-3">
-              <div className="flex justify-end mb-4">
-                <Button
-                  variant="cta"
-                  onClick={() => {
-                    try {
-                      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-                      if (!token) {
-                        window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
-                        return
-                      }
-                      setOpen(true)
-                    } catch {
-                      window.location.href = "/auth/login?next=" + encodeURIComponent("/community")
-                    }
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />New Post
-                </Button>
-              </div>
               <div className="mb-2 text-xs text-slate-500">Auto-refreshing every ~25s</div>
               {loading ? (
                 <div className="grid md:grid-cols-3 gap-5">
@@ -846,26 +840,6 @@ export default function CommunityPage() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="md:col-span-1 space-y-6">
-              <Card className="relative border border-slate-200 shadow-sm transition-all duration-300 transform-gpu hover:-translate-y-1 hover:shadow-2xl">
-                <CardHeader>
-                  <CardTitle className="text-base">Community stats</CardTitle>
-                  <CardDescription>Activity overview</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-700 grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xl font-semibold">{totals.totalPosts}</div>
-                    <div className="text-slate-500">Posts</div>
-                  </div>
-                  <div>
-                    <div className="text-xl font-semibold">{totals.totalLikes}</div>
-                    <div className="text-slate-500">Likes</div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </>

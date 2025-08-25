@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Github, FileText, Video as VideoIcon, Save as SaveIcon, Loader2 } from "lucide-react"
 
@@ -91,79 +92,199 @@ export default function JudgeEventSubmissionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
       <div className="container mx-auto px-6 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Event Submissions</h1>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Event Submissions</h1>
+            <p className="mt-1 text-sm text-slate-600">Review, score, and leave structured feedback. Make sure to save each review.</p>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" className="rounded-lg shadow-sm" onClick={() => router.back()}>Back</Button>
-            <Button asChild className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg shadow-sm">
+            <Button asChild variant="cta" className="rounded-lg">
               <Link prefetch href={`/events/${eventId}`}>View Event</Link>
             </Button>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-slate-600">Loading submissions…</div>
+          <div className="flex items-center justify-center py-24">
+            <div className="inline-flex items-center gap-3 text-slate-600">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading submissions…</span>
+            </div>
+          </div>
         ) : error ? (
-          <div className="text-red-600">{error}</div>
+          <Card className="rounded-xl border border-red-200 bg-red-50/50">
+            <CardContent className="p-6 text-red-700">{error}</CardContent>
+          </Card>
         ) : subs.length === 0 ? (
           <Card className="rounded-xl border border-slate-200 shadow-sm">
-            <CardContent className="p-6 text-slate-600">No submissions yet for this event.</CardContent>
+            <CardContent className="p-8 text-center text-slate-600">No submissions yet for this event.</CardContent>
           </Card>
         ) : (
-          <Card className="rounded-xl border border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">{subs.length} Submission{subs.length !== 1 ? 's' : ''}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="divide-y">
-                {subs.map((s) => (
-                  <div key={s._id} className="py-4 flex flex-col gap-3">
-                    <div className="space-y-1">
-                      <div className="font-medium text-slate-900">{s.title}</div>
-                      <div className="text-sm text-slate-600 flex flex-wrap items-center gap-2">
-                        {s.team?.name && (
-                          <Badge variant="outline" className="rounded-md">Team: {s.team.name}</Badge>
-                        )}
-                        {s.status && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 border text-slate-600">{s.status}</span>
-                        )}
-                      </div>
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="flex items-center gap-2">
-                          <label className="text-sm text-slate-600">Score</label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={1}
-                            className="w-24"
-                            value={editedScores[s._id] ?? (typeof (s as any).score === 'number' ? (s as any).score : "")}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              const num = val === "" ? "" : Number(val)
-                              if (num === "" || (!Number.isNaN(num) && num >= 0 && num <= 100)) {
-                                setEditedScores((prev) => ({ ...prev, [s._id]: num }))
-                              }
-                            }}
-                            placeholder="0-100"
-                          />
+          <div>
+            <div className="mb-4 text-sm text-slate-600">{subs.length} Submission{subs.length !== 1 ? 's' : ''}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {subs.map((s) => {
+                const status = (s as any).status || 'pending'
+                const statusClasses = status === 'reviewed'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                  : status === 'in_review'
+                    ? 'bg-amber-100 text-amber-700 border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                return (
+                  <Card key={s._id} className="rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <CardTitle className="text-base truncate">{s.title}</CardTitle>
+                          <div className="mt-1 text-sm text-slate-600 flex flex-wrap items-center gap-2">
+                            {s.team?.name && (
+                              <Badge variant="outline" className="rounded-md">Team: {s.team.name}</Badge>
+                            )}
+                            {status && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClasses}`}>{status}</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="sm:col-span-2">
-                          <div className="grid grid-cols-1 gap-2">
-                            <div className="text-xs uppercase tracking-wide text-slate-500">Reviewed Notes</div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                            <a href={s.repoUrl || '#'} target={s.repoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.repoUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                              <Github className="h-4 w-4" />
+                              <span>Repo</span>
+                            </a>
+                          </Button>
+                          <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                            <a href={s.docsUrl || '#'} target={s.docsUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.docsUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                              <FileText className="h-4 w-4" />
+                              <span>Docs</span>
+                            </a>
+                          </Button>
+                          <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
+                            <a href={s.videoUrl || '#'} target={s.videoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.videoUrl ? 'pointer-events-none opacity-50' : ''}`}>
+                              <VideoIcon className="h-4 w-4" />
+                              <span>Video</span>
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="grid gap-1">
+                            <Label htmlFor={`score-${s._id}`} className="text-slate-600">Score</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id={`score-${s._id}`}
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                className="w-24"
+                                value={editedScores[s._id] ?? (typeof (s as any).score === 'number' ? (s as any).score : "")}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  const num = val === "" ? "" : Number(val)
+                                  if (num === "" || (!Number.isNaN(num) && num >= 0 && num <= 100)) {
+                                    setEditedScores((prev) => ({ ...prev, [s._id]: num }))
+                                  }
+                                }}
+                                placeholder="0-100"
+                              />
+                              <Button
+                                size="sm"
+                                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-4"
+                                disabled={
+                                  saving[s._id] ||
+                                  !(
+                                    (editedScores[s._id] !== undefined && editedScores[s._id] !== "") ||
+                                    typeof (s as any).score === 'number'
+                                  )
+                                }
+                                onClick={async () => {
+                                  const scoreVal = editedScores[s._id]
+                                  const effectiveScore = (scoreVal === "" ? (typeof (s as any).score === 'number' ? (s as any).score : "") : scoreVal)
+                                  if (effectiveScore === "" || typeof effectiveScore !== 'number') {
+                                    toast.error('Please enter a score between 0 and 100.')
+                                    return
+                                  }
+                                  try {
+                                    setSaving((p) => ({ ...p, [s._id]: true }))
+                                    const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+                                    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                                    const combinedFeedback = (() => {
+                                      const parts: string[] = []
+                                      const f = (feedbacks[s._id] ?? "").trim()
+                                      const ww = (wentWell[s._id] ?? "").trim()
+                                      const kp = (keyPoints[s._id] ?? "").trim()
+                                      if (ww) parts.push(`What went well:\n${ww}`)
+                                      if (kp) {
+                                        const items = kp.split(/\r?\n/).filter(Boolean).map((l: string) => `- ${l}`)
+                                        parts.push(["Key points:", ...items].join("\n"))
+                                      }
+                                      if (f) parts.push(`Additional notes:\n${f}`)
+                                      return parts.join("\n\n")
+                                    })()
+                                    const res = await fetch(`${base}/api/submissions/${s._id}/score`, {
+                                      method: 'PATCH',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                      },
+                                      body: JSON.stringify({ score: effectiveScore, feedback: combinedFeedback }),
+                                      credentials: 'include',
+                                    })
+                                    const data = await res.json().catch(() => ({}))
+                                    if (!res.ok) throw new Error(data?.message || 'Failed to save score')
+                                    // Update the submission locally (score and status)
+                                    setSubs((prev) => prev.map((it) => it._id === s._id ? { ...it, status: 'reviewed', ...(typeof data?.submission?.score === 'number' ? { score: data.submission.score } : {}) , ...(typeof data?.submission?.feedback === 'string' ? { feedback: data.submission.feedback } : {}) } as any : it))
+                                    setEditedScores((prev) => ({ ...prev, [s._id]: typeof data?.submission?.score === 'number' ? data.submission.score : effectiveScore }))
+                                    toast.success('Score saved')
+                                  } catch (e) {
+                                    console.error(e)
+                                    toast.error((e as any)?.message || 'Failed to save score')
+                                  } finally {
+                                    setSaving((p) => ({ ...p, [s._id]: false }))
+                                  }
+                                }}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {saving[s._id] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <SaveIcon className="h-4 w-4" />
+                                  )}
+                                  <span>{saving[s._id] ? 'Saving' : 'Save'}</span>
+                                </span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid gap-3">
+                          <div className="grid gap-1">
+                            <Label htmlFor={`feedback-${s._id}`} className="text-slate-600">Overall feedback</Label>
                             <Textarea
+                              id={`feedback-${s._id}`}
                               rows={2}
                               placeholder="Overall feedback (optional)"
                               value={feedbacks[s._id] ?? ""}
                               onChange={(e) => setFeedbacks((prev) => ({ ...prev, [s._id]: e.target.value }))}
                             />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label htmlFor={`wentwell-${s._id}`} className="text-slate-600">What went well</Label>
                             <Textarea
+                              id={`wentwell-${s._id}`}
                               rows={2}
                               placeholder="What went well (optional)"
                               value={wentWell[s._id] ?? ""}
                               onChange={(e) => setWentWell((prev) => ({ ...prev, [s._id]: e.target.value }))}
                             />
+                          </div>
+                          <div className="grid gap-1">
+                            <Label htmlFor={`kps-${s._id}`} className="text-slate-600">Key points</Label>
                             <Textarea
+                              id={`kps-${s._id}`}
                               rows={2}
                               placeholder="Key points (one per line)"
                               value={keyPoints[s._id] ?? ""}
@@ -172,98 +293,11 @@ export default function JudgeEventSubmissionsPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 self-end">
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
-                        <a href={s.repoUrl || '#'} target={s.repoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.repoUrl ? 'pointer-events-none opacity-50' : ''}`}>
-                          <Github className="h-4 w-4" />
-                          <span>Repo</span>
-                        </a>
-                      </Button>
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
-                        <a href={s.docsUrl || '#'} target={s.docsUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.docsUrl ? 'pointer-events-none opacity-50' : ''}`}>
-                          <FileText className="h-4 w-4" />
-                          <span>Docs</span>
-                        </a>
-                      </Button>
-                      <Button asChild size="sm" variant="outline" className="rounded-full shadow-sm px-3">
-                        <a href={s.videoUrl || '#'} target={s.videoUrl ? "_blank" : undefined} rel="noreferrer" className={`flex items-center gap-1 ${!s.videoUrl ? 'pointer-events-none opacity-50' : ''}`}>
-                          <VideoIcon className="h-4 w-4" />
-                          <span>Video</span>
-                        </a>
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="rounded-full bg-emerald-600 text-white hover:bg-emerald-700 shadow-md px-4"
-                        disabled={
-                          saving[s._id] ||
-                          !(
-                            (editedScores[s._id] !== undefined && editedScores[s._id] !== "") ||
-                            typeof (s as any).score === 'number'
-                          )
-                        }
-                        onClick={async () => {
-                          const scoreVal = editedScores[s._id]
-                          const effectiveScore = (scoreVal === "" ? (typeof (s as any).score === 'number' ? (s as any).score : "") : scoreVal)
-                          if (effectiveScore === "" || typeof effectiveScore !== 'number') {
-                            toast.error('Please enter a score between 0 and 100.')
-                            return
-                          }
-                          try {
-                            setSaving((p) => ({ ...p, [s._id]: true }))
-                            const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-                            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-                            const combinedFeedback = (() => {
-                              const parts: string[] = []
-                              const f = (feedbacks[s._id] ?? "").trim()
-                              const ww = (wentWell[s._id] ?? "").trim()
-                              const kp = (keyPoints[s._id] ?? "").trim()
-                              if (ww) parts.push(`What went well:\n${ww}`)
-                              if (kp) {
-                                const items = kp.split(/\r?\n/).filter(Boolean).map((l: string) => `- ${l}`)
-                                parts.push(["Key points:", ...items].join("\n"))
-                              }
-                              if (f) parts.push(`Additional notes:\n${f}`)
-                              return parts.join("\n\n")
-                            })()
-                            const res = await fetch(`${base}/api/submissions/${s._id}/score`, {
-                              method: 'PATCH',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                              },
-                              body: JSON.stringify({ score: effectiveScore, feedback: combinedFeedback }),
-                              credentials: 'include',
-                            })
-                            const data = await res.json().catch(() => ({}))
-                            if (!res.ok) throw new Error(data?.message || 'Failed to save score')
-                            // Update the submission locally (score and status)
-                            setSubs((prev) => prev.map((it) => it._id === s._id ? { ...it, status: 'reviewed', ...(typeof data?.submission?.score === 'number' ? { score: data.submission.score } : {}) , ...(typeof data?.submission?.feedback === 'string' ? { feedback: data.submission.feedback } : {}) } as any : it))
-                            setEditedScores((prev) => ({ ...prev, [s._id]: typeof data?.submission?.score === 'number' ? data.submission.score : effectiveScore }))
-                            toast.success('Score saved')
-                          } catch (e) {
-                            console.error(e)
-                            toast.error((e as any)?.message || 'Failed to save score')
-                          } finally {
-                            setSaving((p) => ({ ...p, [s._id]: false }))
-                          }
-                        }}
-                      >
-                        <span className="flex items-center gap-1">
-                          {saving[s._id] ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <SaveIcon className="h-4 w-4" />
-                          )}
-                          <span>{saving[s._id] ? 'Saving' : 'Save'}</span>
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    </CardContent>
+                  </Card>
+                )})}
+            </div>
+          </div>
         )}
       </div>
     </div>
