@@ -38,3 +38,5 @@ frontend/.env.local
 .env.production
 .env.development
 .env.test
+# Explicit temp secret files
+backend/base64.txt
