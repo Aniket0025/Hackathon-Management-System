@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, MapPin, ArrowLeft, Pencil, Trash2, Crown, Ellipsis, Mail } from "lucide-react"
+import { toast } from "sonner"
 import Link from "next/link"
 import type { CheckedState } from "@radix-ui/react-checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -116,6 +117,7 @@ const makeEmptyMember = (): RegistrationData["teamInfo"]["members"][number] => (
 
 export default function EventRegistrationPage() {
   const routeParams = useParams() as { id?: string | string[] }
+  const router = useRouter()
   const id = Array.isArray(routeParams?.id) ? routeParams.id[0] : routeParams?.id
   const [event, setEvent] = useState<EventItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -696,8 +698,16 @@ export default function EventRegistrationPage() {
           localStorage.removeItem(`draft_email_${id}`)
         }
       } catch {}
-      // Success -> redirect back to the event page
-      window.location.href = `/events/${id}`
+      // Success -> show confirmation then redirect to the event details page
+      try {
+        toast.success("Registration completed")
+      } catch {}
+      // Small delay so users can see the toast
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          router.push(`/events/${id}`)
+        }
+      }, 700)
     } catch (err: any) {
       setSubmitError(err?.message || "Registration failed")
     } finally {
