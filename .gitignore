@@ -40,3 +40,5 @@ frontend/.env.local
 .env.test
 # Explicit temp secret files
 backend/base64.txt
+
+**/base64.txt
