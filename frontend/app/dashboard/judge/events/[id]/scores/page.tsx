@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, ExternalLink, Star } from "lucide-react"
+import { io, Socket } from "socket.io-client"
 
 interface SubmissionItem {
   _id: string
@@ -23,15 +24,17 @@ export default function EventScoresPage() {
   const [subs, setSubs] = useState<SubmissionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const socketRef = useRef<Socket | null>(null)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    const ctrl = new AbortController()
-    const load = async () => {
+  const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000", [])
+
+  const loadSubs = useMemo(() => {
+    return async (signal?: AbortSignal) => {
       try {
         setLoading(true)
         setError(null)
-        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-        const res = await fetch(`${base}/api/submissions?eventId=${encodeURIComponent(eventId)}`, { signal: ctrl.signal })
+        const res = await fetch(`${apiBase}/api/submissions?eventId=${encodeURIComponent(eventId)}`, { signal })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.message || "Failed to load submissions")
         const arr: SubmissionItem[] = Array.isArray(data?.submissions) ? data.submissions : []
@@ -42,9 +45,48 @@ export default function EventScoresPage() {
         setLoading(false)
       }
     }
-    if (eventId) load()
+  }, [apiBase, eventId])
+
+  useEffect(() => {
+    const ctrl = new AbortController()
+    if (eventId) loadSubs(ctrl.signal)
     return () => ctrl.abort()
-  }, [eventId])
+  }, [eventId, loadSubs])
+
+  // Realtime updates: listen to leaderboard:update for this event
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+
+    // Polling fallback every 20s
+    pollRef.current = setInterval(() => { loadSubs() }, 20000)
+
+    if (!token) {
+      return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    }
+    try {
+      const socket = io(apiBase, {
+        transports: ["websocket"],
+        auth: { token },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 10,
+      })
+      socketRef.current = socket
+      socket.on('connect', () => loadSubs())
+      socket.on('leaderboard:update', (p: { event?: string }) => {
+        if (p?.event && String(p.event) === String(eventId)) loadSubs()
+      })
+    } catch {}
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners()
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+    }
+  }, [apiBase, eventId, loadSubs])
 
   const sorted = [...subs].sort((a, b) => (b.score || 0) - (a.score || 0))
 

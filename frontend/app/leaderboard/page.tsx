@@ -1,40 +1,42 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AdvancedNavigation } from "@/components/advanced-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Star } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams } from "next/navigation"
+import { io, Socket } from "socket.io-client"
 
 type Team = { _id: string; name: string; score?: number; eventName?: string }
-type EventItem = { _id: string; title: string }
 
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState<Team[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [events, setEvents] = useState<EventItem[]>([])
-  const [eventId, setEventId] = useState<string>("all")
+  const [eventId, setEventId] = useState<string>("")
   const searchParams = useSearchParams()
+  const socketRef = useRef<Socket | null>(null)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Initialize event filter from URL query (?eventId=...)
+  const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000", [])
+
+  // Initialize eventId from URL query (?eventId=...)
   useEffect(() => {
     const id = searchParams.get("eventId")
     if (id) setEventId(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const load = async () => {
+  const loadLeaders = useMemo(() => {
+    return async () => {
       setError(null)
       try {
         setLoading(true)
-        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+        if (!eventId) throw new Error('Missing eventId. Please open from an event card.')
         const params = new URLSearchParams({ sort: "score_desc", limit: "9" })
-        if (eventId && eventId !== "all") params.set("eventId", eventId)
-        const res = await fetch(`${base}/api/teams?${params.toString()}`)
+        params.set("eventId", eventId)
+        const res = await fetch(`${apiBase}/api/teams?${params.toString()}`)
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.message || 'Failed to load leaderboard')
         setLeaders(Array.isArray(data?.teams) ? data.teams : [])
@@ -44,24 +46,66 @@ export default function LeaderboardPage() {
         setLoading(false)
       }
     }
-    load()
-  }, [eventId])
+  }, [apiBase, eventId])
 
-  // Load events for filter
+  useEffect(() => { loadLeaders() }, [loadLeaders])
+
+  // No events dropdown: page is event-scoped only
+
+  // Real-time updates via Socket.IO with polling fallback
   useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
-        const res = await fetch(`${base}/api/events`)
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(data?.message || 'Failed to load events')
-        setEvents(Array.isArray(data?.events) ? data.events : [])
-      } catch {
-        // non-fatal
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+
+    // Always set up a polling fallback (every 20s)
+    pollRef.current = setInterval(() => {
+      loadLeaders()
+    }, 20000)
+
+    if (!token) {
+      return () => {
+        if (pollRef.current) clearInterval(pollRef.current)
       }
     }
-    loadEvents()
-  }, [])
+
+    // Attempt socket connection when token available
+    try {
+      const socket = io(apiBase, {
+        transports: ["websocket"],
+        auth: { token },
+        autoConnect: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 10,
+      })
+      socketRef.current = socket
+
+      socket.on('connect', () => {
+        // initial refresh after connection
+        loadLeaders()
+      })
+      socket.on('leaderboard:update', (payload: { event?: string; reason?: string }) => {
+        // If a specific event is selected, only refresh on matching event
+        if (!payload) return
+        if (payload.event && payload.event === eventId) {
+          loadLeaders()
+        }
+      })
+      socket.on('disconnect', () => {
+        // Keep polling fallback active
+      })
+    } catch {
+      // ignore socket errors; polling will keep it fresh
+    }
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners()
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+    }
+  }, [apiBase, eventId, loadLeaders])
 
   return (
     <div className="min-h-screen bg-white">
@@ -77,20 +121,7 @@ export default function LeaderboardPage() {
           <p className="text-slate-600 mt-3 max-w-2xl mx-auto">
             Real-time rankings based on judging, public votes, and impact.
           </p>
-          <div className="mt-6 mx-auto flex flex-col items-center gap-2">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Filter by event</div>
-            <Select value={eventId} onValueChange={(v) => setEventId(v)}>
-              <SelectTrigger className="w-64 sm:w-80 bg-white rounded-md shadow-sm border-slate-200">
-                <SelectValue placeholder="Choose an event (optional)" />
-              </SelectTrigger>
-              <SelectContent className="w-64 sm:w-80">
-                <SelectItem value="all">All Events</SelectItem>
-                {events.map((ev) => (
-                  <SelectItem key={ev._id} value={ev._id}>{ev.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Event filter removed: this page only shows leaderboard for a specific event via ?eventId=... */}
         </div>
 
         {error && (
@@ -103,11 +134,6 @@ export default function LeaderboardPage() {
             <span className="px-3 py-1 rounded-full bg-white/70 backdrop-blur border border-slate-200 text-slate-700 shadow-sm">
               Showing {leaders.length} team{leaders.length === 1 ? '' : 's'}
             </span>
-            {eventId !== 'all' && (
-              <span className="px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 shadow-sm">
-                {events.find(e => e._id === eventId)?.title || 'Selected Event'}
-              </span>
-            )}
           </div>
         )}
 
@@ -129,7 +155,7 @@ export default function LeaderboardPage() {
           ) : (
             leaders.length === 0 ? (
               <div className="col-span-full text-center text-slate-600 py-10">
-                No teams found for the selected filter.
+                No teams found for this event.
               </div>
             ) : (
               leaders.map((l) => (

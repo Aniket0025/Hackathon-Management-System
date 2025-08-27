@@ -33,6 +33,24 @@ async function upsertEvaluation(req, res) {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).populate('team', 'name').populate('judge', 'name email');
 
+    // Recalculate Team.score based on all evaluations for this team in this event
+    try {
+      const evals = await Evaluation.find({ event: eventId, team: teamId }).select('scores').lean();
+      const perEval = evals.map(e => {
+        const s = e.scores || {};
+        const nums = [s.innovation, s.impact, s.feasibility, s.presentation].filter(v => typeof v === 'number');
+        if (!nums.length) return null;
+        // average across criteria (0-10), scale to 100
+        return (nums.reduce((a, b) => a + b, 0) / nums.length) * 10;
+      }).filter(v => typeof v === 'number');
+      if (perEval.length) {
+        const avg = perEval.reduce((a, b) => a + b, 0) / perEval.length;
+        await Team.findByIdAndUpdate(teamId, { $set: { score: Number(avg.toFixed(2)) } }).catch(() => {});
+      }
+      const io = req.app.get('io');
+      if (io) io.emit('leaderboard:update', { event: String(eventId), reason: 'evaluation_updated' });
+    } catch (_) {}
+
     return res.status(200).json({ evaluation: evalDoc });
   } catch (err) {
     console.error('upsertEvaluation error', err);
@@ -92,6 +110,26 @@ async function markComplete(req, res) {
 
     doc.status = 'complete';
     await doc.save();
+
+    // Recalculate Team.score for this evaluation's team in its event and emit update
+    try {
+      const eventId = doc.event;
+      const teamId = doc.team;
+      const evals = await Evaluation.find({ event: eventId, team: teamId }).select('scores').lean();
+      const perEval = evals.map(e => {
+        const s = e.scores || {};
+        const nums = [s.innovation, s.impact, s.feasibility, s.presentation].filter(v => typeof v === 'number');
+        if (!nums.length) return null;
+        return (nums.reduce((a, b) => a + b, 0) / nums.length) * 10;
+      }).filter(v => typeof v === 'number');
+      if (perEval.length) {
+        const avg = perEval.reduce((a, b) => a + b, 0) / perEval.length;
+        await Team.findByIdAndUpdate(teamId, { $set: { score: Number(avg.toFixed(2)) } }).catch(() => {});
+      }
+      const io = req.app.get('io');
+      if (io) io.emit('leaderboard:update', { event: String(eventId), reason: 'evaluation_completed' });
+    } catch (_) {}
+
     return res.json({ evaluation: doc });
   } catch (err) {
     console.error('markComplete error', err);
