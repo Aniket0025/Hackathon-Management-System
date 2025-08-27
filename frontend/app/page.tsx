@@ -428,7 +428,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-slate-400 text-sm mb-4 md:mb-0"> 2024 HackHost. Built for the innovation community.</p>
+            <p className="text-slate-400 text-sm mb-4 md:mb-0"> 2025 HackHost. Built for the innovation community.</p>
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="bg-green-100 text-green-700">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
