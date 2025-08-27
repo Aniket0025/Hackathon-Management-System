@@ -14,12 +14,14 @@ import {
   ArrowRight,
   Sparkles,
   Activity,
+  Mail,
 } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import Image from "next/image"
 import AnimatedMarquee from "@/components/animated-marquee"
 import TestimonialCarousel from "@/components/testimonial-carousel"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const RealTimeActivityFeed = dynamic(
   () => import("@/components/real-time-activity-feed").then(m => ({ default: m.RealTimeActivityFeed })),
@@ -401,7 +403,7 @@ export default function HomePage() {
               <div className="flex items-center gap-3 mb-6">
                 <Image
                   src="/hackhost-logo.png"
-                  alt="HackHost"
+                  alt="TechnoCrats"
                   width={32}
                   height={32}
                   className="rounded-lg"
@@ -467,10 +469,92 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
+
+          </div>
+
+          {/* Team - moved below */}
+          <div className="mt-2">
+            <h4 className="text-white font-semibold mb-4">Team</h4>
+            <div className="mb-3">
+              <span className="text-slate-400 mr-2">Company</span>
+              <Badge variant="secondary" className="bg-cyan-100/10 text-cyan-300 border border-cyan-500/30">
+                TechnoCrats
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Member: Aniket */}
+              <a
+                href="mailto:aniketyadav25012005@gmail.com"
+                className="group flex items-center gap-3 rounded-lg border border-slate-800/60 bg-slate-800/30 px-3 py-2 transition-all hover:border-cyan-500/50 hover:bg-slate-800/60"
+              >
+                <Avatar className="size-9 ring-2 ring-slate-700 group-hover:ring-cyan-500/60">
+                  <AvatarImage alt="Aniket Yadav" />
+                  <AvatarFallback className="bg-gradient-to-br from-cyan-600 to-blue-600 text-white text-sm">AY</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-medium text-slate-100">Aniket Yadav</span>
+                  <span className="flex items-center text-slate-400 text-sm group-hover:text-cyan-300">
+                    <Mail className="mr-1 h-3.5 w-3.5" /> aniketyadav25012005@gmail.com
+                  </span>
+                </div>
+              </a>
+
+              {/* Member: Om */}
+              <a
+                href="mailto:pom72103@gmail.com"
+                className="group flex items-center gap-3 rounded-lg border border-slate-800/60 bg-slate-800/30 px-3 py-2 transition-all hover:border-cyan-500/50 hover:bg-slate-800/60"
+              >
+                <Avatar className="size-9 ring-2 ring-slate-700 group-hover:ring-cyan-500/60">
+                  <AvatarImage alt="Om Patil" />
+                  <AvatarFallback className="bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-sm">OP</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-medium text-slate-100">Om Patil</span>
+                  <span className="flex items-center text-slate-400 text-sm group-hover:text-cyan-300">
+                    <Mail className="mr-1 h-3.5 w-3.5" /> pom72103@gmail.com
+                  </span>
+                </div>
+              </a>
+
+              {/* Member: Sujit */}
+              <a
+                href="mailto:gadesujit10@gmail.com"
+                className="group flex items-center gap-3 rounded-lg border border-slate-800/60 bg-slate-800/30 px-3 py-2 transition-all hover:border-cyan-500/50 hover:bg-slate-800/60"
+              >
+                <Avatar className="size-9 ring-2 ring-slate-700 group-hover:ring-cyan-500/60">
+                  <AvatarImage alt="Sujit Gade" />
+                  <AvatarFallback className="bg-gradient-to-br from-fuchsia-600 to-pink-600 text-white text-sm">SG</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-medium text-slate-100">Sujit Gade</span>
+                  <span className="flex items-center text-slate-400 text-sm group-hover:text-cyan-300">
+                    <Mail className="mr-1 h-3.5 w-3.5" /> gadesujit10@gmail.com
+                  </span>
+                </div>
+              </a>
+
+              {/* Member: Chaitanya */}
+              <a
+                href="mailto:chaitanyauthale5@gmail.com"
+                className="group flex items-center gap-3 rounded-lg border border-slate-800/60 bg-slate-800/30 px-3 py-2 transition-all hover:border-cyan-500/50 hover:bg-slate-800/60"
+              >
+                <Avatar className="size-9 ring-2 ring-slate-700 group-hover:ring-cyan-500/60">
+                  <AvatarImage alt="Chaitanya Uthale" />
+                  <AvatarFallback className="bg-gradient-to-br from-orange-600 to-rose-600 text-white text-sm">CU</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-medium text-slate-100">Chaitanya Uthale</span>
+                  <span className="flex items-center text-slate-400 text-sm group-hover:text-cyan-300">
+                    <Mail className="mr-1 h-3.5 w-3.5" /> chaitanyauthale5@gmail.com
+                  </span>
+                </div>
+              </a>
+            </div>
           </div>
 
           <div className="border-t border-slate-700 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-slate-400 text-sm mb-4 md:mb-0"> 2024 HackHost. Built for the innovation community.</p>
+            <p className="text-slate-400 text-sm mb-4 md:mb-0"> 2025 HackHost. Built for the innovation community.</p>
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="bg-green-100 text-green-700">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>

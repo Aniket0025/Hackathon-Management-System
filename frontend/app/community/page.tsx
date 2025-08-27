@@ -692,7 +692,6 @@ export default function CommunityPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-xs text-slate-500">{q.solved ? 'Marked as solved' : 'Open question'}</div>
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => upvoteQuestion(q.id)}>Upvote</Button>
                         {(role === 'organizer' || role === 'admin') && (
                           <Button size="sm" variant={q.solved ? 'secondary' : 'cta'} onClick={() => toggleSolved(q.id)}>
                             {q.solved ? 'Unsolve' : 'Mark Solved'}
@@ -711,7 +710,7 @@ export default function CommunityPage() {
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-slate-500">{typeof a.upvotes==='number' ? a.upvotes : 0} upvotes</span>
                                 {a.id && (
-                                  <Button size="sm" variant="secondary" onClick={() => upvoteAnswer(q.id, a.id!)}>
+                                  <Button size="sm" variant="default" onClick={() => upvoteAnswer(q.id, a.id!)}>
                                     Upvote
                                   </Button>
                                 )}
