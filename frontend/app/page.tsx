@@ -344,7 +344,7 @@ export default function HomePage() {
                   setSubmitting(false)
                 }
               }}
-              className="bg-white text-cyan-600 hover:bg-cyan-50 font-semibold min-h-[48px] px-6 touch-manipulation"
+              className="bg-cyan-600 text-white hover:bg-cyan-500 font-semibold min-h-[48px] px-6 touch-manipulation"
             >
               {submitting ? 'Subscribing…' : 'Subscribe'}
             </Button>
@@ -419,16 +419,14 @@ export default function HomePage() {
             <div>
               <h4 className="text-white font-semibold mb-4">Platform</h4>
               <div className="space-y-2">
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/features" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Features
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
-                  AI Tools
-                </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                {/* AI Tools link removed */}
+                <Link href="/analytics" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Analytics
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/security" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Security
                 </Link>
               </div>
@@ -437,34 +435,30 @@ export default function HomePage() {
             <div>
               <h4 className="text-white font-semibold mb-4">Resources</h4>
               <div className="space-y-2">
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/docs" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Documentation
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/api-reference" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   API Reference
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/best-practices" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Best Practices
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
-                  Case Studies
-                </Link>
+                {/* Case Studies link removed */}
               </div>
             </div>
 
             <div>
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <div className="space-y-2">
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/about" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   About Us
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
-                  Careers
-                </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                {/* Careers link removed */}
+                <Link href="/contact" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Contact
                 </Link>
-                <Link href="#" className="block text-slate-400 hover:text-cyan-400 transition-colors">
+                <Link href="/privacy" className="block text-slate-400 hover:text-cyan-400 transition-colors">
                   Privacy
                 </Link>
               </div>
