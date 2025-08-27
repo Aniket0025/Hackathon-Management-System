@@ -26,7 +26,6 @@ export default function AnalyticsPage() {
   const [role, setRole] = useState<string | null>(null)
   const [loadingRole, setLoadingRole] = useState(true)
   const [roleError, setRoleError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   // If organizer has no hosted events, avoid showing global Advanced Insights that imply data
   const [organizerHasEvents, setOrganizerHasEvents] = useState<boolean | null>(null)
@@ -49,9 +48,10 @@ export default function AnalyticsPage() {
   const handleExportExcel = async () => {
     try {
       setExportingExcel(true)
-      const [{ default: XLSX }] = await Promise.all([
-        import('xlsx') as any,
-      ])
+      // Dynamic import of xlsx as a namespace object. Using `{ default: XLSX }`
+      // would yield the default export, which doesn't contain `utils` in some builds
+      // and causes "Cannot read properties of undefined (reading 'utils')".
+      const XLSX = await import('xlsx')
 
       const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -75,12 +75,14 @@ export default function AnalyticsPage() {
         XLSX.utils.book_append_sheet(wb, ws1, 'Platform Overview')
       } catch {}
 
-      // 2) Trends
+      // 2) Global/role-aware trends
       try {
-        const trends = await jget(`${base}/api/analytics/trends`)
-        const arr = Array.isArray(trends?.data) ? trends.data : (Array.isArray(trends) ? trends : [trends])
-        if (arr.length) {
-          const ws2 = XLSX.utils.json_to_sheet(arr)
+        const trends = await jget(`${base}/api/analytics/trends?timeframe=30d`)
+        const series = Array.isArray(trends?.data?.trends)
+          ? trends.data.trends
+          : (Array.isArray(trends?.trends) ? trends.trends : (Array.isArray(trends) ? trends : []))
+        if (series.length) {
+          const ws2 = XLSX.utils.json_to_sheet(series)
           XLSX.utils.book_append_sheet(wb, ws2, 'Trends')
         }
       } catch {}
@@ -88,12 +90,65 @@ export default function AnalyticsPage() {
       // 3) Organizer hosted events + selected event details (if organizer)
       if (role === 'organizer') {
         try {
-          // Try to reuse current organizer filters from URL? Not available; fetch default overview
+          // Fetch organizer overview
           const overview = await jget(`${base}/api/analytics/organizer/events-overview`, true)
-          const rows = Array.isArray(overview?.data) ? overview.data : (Array.isArray(overview?.events) ? overview.events : [])
-          if (rows.length) {
-            const ws = XLSX.utils.json_to_sheet(rows)
-            XLSX.utils.book_append_sheet(wb, ws, 'Hosted Events')
+          const rawList = Array.isArray(overview?.data) ? overview.data : (Array.isArray(overview?.events) ? overview.events : [])
+
+          if (rawList.length) {
+            // Map to the exact columns visible in the UI table
+            const toDate = (v: any) => v ? new Date(v) : null
+            const fmt = (d: Date | null) => d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : ''
+            const items: {
+              Event: string
+              Status: string
+              Start: string
+              End: string
+              Registrations: number
+              Submissions: number
+              Conversion: string
+              'Active 24h': number
+            }[] = rawList.map((r: any) => {
+              const title = r?.title || r?.event?.title || r?.name || 'Event'
+              const status = (r?.status || r?.event?.status || '').toString()
+              const start = fmt(toDate(r?.startDate || r?.event?.startDate || r?.start))
+              const end = fmt(toDate(r?.endDate || r?.event?.endDate || r?.end))
+              const registrations = Number(r?.metrics?.registrations ?? r?.totalRegistrations ?? r?.registrations ?? r?.countRegistrations ?? 0)
+              const submissions = Number(r?.metrics?.submissions ?? r?.totalSubmissions ?? r?.submissions ?? r?.countSubmissions ?? 0)
+              const conversionNum = Number.isFinite(r?.metrics?.conversion)
+                ? Number(r.metrics.conversion)
+                : ((registrations > 0) ? (submissions / registrations) * 100 : (Number(r?.conversionRate ?? r?.conversion ?? 0)))
+              const active24h = Number(r?.metrics?.activity24h ?? r?.activity24h ?? r?.activeLast24h ?? r?.recentActivityCount ?? 0)
+              return {
+                Event: title,
+                Status: status.charAt(0).toUpperCase() + status.slice(1),
+                Start: start,
+                End: end,
+                Registrations: registrations,
+                Submissions: submissions,
+                Conversion: `${Math.round(conversionNum)}%`,
+                'Active 24h': active24h,
+              }
+            })
+
+            // Summary totals like the header cards (Total Hosted Events, Total Registrations, Total Submissions)
+            const totalsInit = { totalEvents: 0, totalRegistrations: 0, totalSubmissions: 0, totalActive24h: 0 }
+            const totals = items.reduce((acc: typeof totalsInit, it) => {
+              acc.totalEvents += 1
+              acc.totalRegistrations += Number(it.Registrations || 0)
+              acc.totalSubmissions += Number(it.Submissions || 0)
+              acc.totalActive24h += Number(it['Active 24h'] || 0)
+              return acc
+            }, totalsInit)
+
+            const summaryRows = [
+              { Metric: 'Total Hosted Events', Value: totals.totalEvents },
+              { Metric: 'Total Registrations', Value: totals.totalRegistrations },
+              { Metric: 'Total Submissions', Value: totals.totalSubmissions },
+              { Metric: 'Active 24h (sum)', Value: totals.totalActive24h },
+            ]
+
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Organizer Summary')
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(items), 'Organizer Events')
           }
 
           // Selected organizer event from localStorage (maintained by OrganizerAnalyticsView)
@@ -121,6 +176,29 @@ export default function AnalyticsPage() {
               ].filter(r => r.value > 0)
               if (statusRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statusRows), 'Selected Event Status')
             } catch {}
+          }
+        } catch {}
+      }
+
+      // 4) Participant-scoped events overview (if participant)
+      if (role === 'participant') {
+        try {
+          const my = await jget(`${base}/api/analytics/my-events`, true)
+          const list = Array.isArray(my?.data) ? my.data : (Array.isArray(my?.events) ? my.events : [])
+          if (Array.isArray(list) && list.length) {
+            const toDate = (v: any) => v ? new Date(v) : null
+            const fmt = (d: Date | null) => d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : ''
+            const rows = list.map((r: any) => ({
+              Event: r?.title || r?.event?.title || 'Event',
+              Status: (r?.status || '').toString(),
+              Start: fmt(toDate(r?.startDate)),
+              End: fmt(toDate(r?.endDate)),
+              Registrations: Number(r?.metrics?.registrations ?? 0),
+              Submissions: Number(r?.metrics?.submissions ?? 0),
+              Conversion: `${Math.round(Number(r?.metrics?.conversion ?? 0))}%`,
+              'Active 24h': Number(r?.metrics?.activity24h ?? 0),
+            }))
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'My Events')
           }
         } catch {}
       }
@@ -154,106 +232,7 @@ export default function AnalyticsPage() {
     }
   }
 
-  const handleExportReport = async () => {
-    try {
-      setExporting(true)
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf") as any,
-      ])
-
-      const el = document.getElementById("analytics-report-root")
-      if (!el) throw new Error("Report root not found")
-
-      // Inject print-safe CSS to avoid oklch parsing issues during rasterization
-      const style = document.createElement('style')
-      style.setAttribute('data-pdf-style', 'true')
-      style.innerHTML = `
-        /* Global neutralization while exporting to avoid oklch/filters/gradients */
-        html.pdf-safe-export, html.pdf-safe-export body, #__next, #root, .pdf-safe, .pdf-safe * {
-          background-image: none !important;
-          -webkit-backdrop-filter: none !important;
-          backdrop-filter: none !important;
-          box-shadow: none !important;
-          text-shadow: none !important;
-          filter: none !important;
-        }
-        html.pdf-safe-export, html.pdf-safe-export body, .pdf-safe { background: #ffffff !important; color: #0f172a !important; }
-        html.pdf-safe-export *, .pdf-safe * { color: #0f172a !important; }
-        /* Neutralize Tailwind gradient vars that may be oklch-based */
-        html.pdf-safe-export *, .pdf-safe * {
-          --tw-gradient-from: #ffffff !important;
-          --tw-gradient-to: #ffffff !important;
-          --tw-gradient-stops: #ffffff !important;
-          --tw-ring-color: #e2e8f0 !important;
-          --tw-shadow: 0 0 #0000 !important;
-        }
-      `
-      document.head.appendChild(style)
-
-      // Toggle global and scoped classes to guarantee safe styles
-      document.documentElement.classList.add('pdf-safe-export')
-      el.classList.add("bg-white")
-      el.classList.add("pdf-safe")
-      const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" })
-      const imgData = canvas.toDataURL("image/png")
-
-      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" })
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = pageWidth - 64
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-      const availableHeightPt = pageHeight - 96 - 32
-      const pixelsPerPoint = canvas.height / imgHeight
-      const availableHeightPx = Math.floor(availableHeightPt * pixelsPerPoint)
-
-      let pageNum = 1
-      for (let yPx = 0; yPx < canvas.height; yPx += availableHeightPx) {
-        const sliceHeightPx = Math.min(availableHeightPx, canvas.height - yPx)
-        const sliceCanvas = document.createElement('canvas')
-        sliceCanvas.width = canvas.width
-        sliceCanvas.height = sliceHeightPx
-        const ctx = sliceCanvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(
-            canvas,
-            0, yPx, canvas.width, sliceHeightPx, // source rect
-            0, 0, canvas.width, sliceHeightPx      // dest rect
-          )
-        }
-        const sliceImgData = sliceCanvas.toDataURL('image/png')
-        const sliceHeightPt = (sliceHeightPx / pixelsPerPoint)
-        const sliceWidthPt = imgWidth
-        const sliceY = 96
-        pdf.addImage(sliceImgData, 'PNG', 32, sliceY, sliceWidthPt, sliceHeightPt)
-        pdf.setTextColor(100)
-        pdf.setFontSize(9)
-        pdf.text(`HackHost • Page ${pageNum}`, pageWidth / 2, pageHeight - 20, { align: "center" })
-        if (yPx + sliceHeightPx < canvas.height) {
-          pdf.addPage()
-          pdf.setFillColor(240, 253, 250)
-          pdf.rect(0, 0, pageWidth, 72, 'F')
-          pdf.setTextColor(16, 24, 39)
-          pdf.setFontSize(18)
-          pdf.text("HackHost – Advanced Analytics Report", 32, 44)
-          pageNum += 1
-        }
-      }
-
-      pdf.save(`HackHost-Analytics-Report-${Date.now()}.pdf`)
-      el.classList.remove("bg-white")
-      el.classList.remove("pdf-safe")
-      document.documentElement.classList.remove('pdf-safe-export')
-      const injected = document.querySelector('style[data-pdf-style="true"]')
-      if (injected) injected.remove()
-    } catch (e) {
-      console.error(e)
-      alert((e as any)?.message || "Failed to export report")
-    } finally {
-      setExporting(false)
-    }
-  }
+  // Removed Export Report (PDF) feature as requested
 
   // Determine user role (participant/judge/organizer/admin)
   useEffect(() => {
@@ -330,26 +309,19 @@ export default function AnalyticsPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleExportReport}
-              disabled={exporting}
-              className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {exporting ? 'Preparing…' : 'Export Report'}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleExportExcel}
-              disabled={exportingExcel}
-              className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {exportingExcel ? 'Preparing…' : 'Export Excel'}
-            </Button>
+            {/* Export Excel visible only to organizer and judge */}
+            {(role === 'organizer' || role === 'judge') && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleExportExcel}
+                disabled={exportingExcel}
+                className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exportingExcel ? 'Preparing…' : 'Export Excel'}
+              </Button>
+            )}
             {lastUpdated && (
               <span className="text-sm text-slate-700 font-medium">
                 Last updated: {lastUpdated}
