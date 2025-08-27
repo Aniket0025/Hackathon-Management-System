@@ -132,6 +132,104 @@ async function myEventsOverview(req, res, next) {
   }
 }
 
+// Organizer-scoped overview: only events hosted by the authenticated organizer
+async function organizerEventsOverview(req, res, next) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { status, sortBy = 'startDate', order = 'desc', limit } = req.query;
+
+    const match = { organizer: new mongoose.Types.ObjectId(userId) };
+    if (status) match.status = status;
+
+    const now = new Date();
+    const sortMap = {
+      startDate: { field: 'startDate' },
+      title: { field: 'title' },
+      registrations: { field: 'metrics.registrations' },
+      submissions: { field: 'metrics.submissions' },
+      conversion: { field: 'metrics.conversion' },
+      activity24h: { field: 'metrics.activity24h' },
+    };
+    const sortField = (sortMap[sortBy] || sortMap.startDate).field;
+    const sortOrder = order === 'asc' ? 1 : -1;
+
+    const pipeline = [
+      { $match: match },
+      {
+        $lookup: {
+          from: 'registrations',
+          let: { evId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$event', '$$evId'] } } },
+            { $group: { _id: null, total: { $sum: 1 }, last24h: { $sum: { $cond: [{ $gte: ['$createdAt', new Date(now - 24 * 60 * 60 * 1000)] }, 1, 0] } } } }
+          ],
+          as: 'regStats'
+        }
+      },
+      {
+        $lookup: {
+          from: 'submissions',
+          let: { evId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$event', '$$evId'] } } },
+            { $group: { _id: null, total: { $sum: 1 }, last24h: { $sum: { $cond: [{ $gte: ['$createdAt', new Date(now - 24 * 60 * 60 * 1000)] }, 1, 0] } } } }
+          ],
+          as: 'subStats'
+        }
+      },
+      {
+        $addFields: {
+          metrics: {
+            registrations: { $ifNull: [{ $arrayElemAt: ['$regStats.total', 0] }, 0] },
+            submissions: { $ifNull: [{ $arrayElemAt: ['$subStats.total', 0] }, 0] },
+            activity24h: {
+              $add: [
+                { $ifNull: [{ $arrayElemAt: ['$regStats.last24h', 0] }, 0] },
+                { $ifNull: [{ $arrayElemAt: ['$subStats.last24h', 0] }, 0] }
+              ]
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          'metrics.conversion': {
+            $cond: [
+              { $gt: ['$metrics.registrations', 0] },
+              { $multiply: [{ $divide: ['$metrics.submissions', '$metrics.registrations'] }, 100] },
+              0
+            ]
+          }
+        }
+      },
+      { $sort: { [sortField]: sortOrder } },
+    ];
+
+    if (limit) pipeline.push({ $limit: Number(limit) });
+
+    const docs = await Event.aggregate(pipeline);
+    const data = docs.map(d => ({
+      id: d._id,
+      title: d.title,
+      status: d.status,
+      startDate: d.startDate,
+      endDate: d.endDate,
+      metrics: {
+        registrations: d.metrics?.registrations || 0,
+        submissions: d.metrics?.submissions || 0,
+        activity24h: d.metrics?.activity24h || 0,
+        conversion: Math.round((d.metrics?.conversion || 0) * 10) / 10,
+      }
+    }));
+
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Judge/organizer leaderboard for an event
 async function judgeLeaderboard(req, res, next) {
   try {
@@ -755,5 +853,6 @@ module.exports = {
   listEventsBasic,
   listEventsOverview,
   myEventsOverview,
-  judgeLeaderboard
+  judgeLeaderboard,
+  organizerEventsOverview
 };

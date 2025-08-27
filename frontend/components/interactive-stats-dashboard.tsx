@@ -41,7 +41,7 @@ export function InteractiveStatsDashboard({ eventId }: { eventId?: string }) {
     { title: "Success Rate", value: 0, change: 0, icon: Trophy, color: "from-amber-500 to-orange-500", suffix: "%" },
   ])
 
-  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d">("24h")
+  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d">("30d")
   const [isAnimating, setIsAnimating] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

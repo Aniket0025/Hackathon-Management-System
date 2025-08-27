@@ -11,6 +11,7 @@ const {
   listEventsOverview,
   myEventsOverview,
   judgeLeaderboard,
+  organizerEventsOverview,
 } = require('../controllers/analyticsController');
 
 // GET /api/analytics/dashboard - Real-time dashboard data
@@ -36,6 +37,9 @@ router.get('/my-events', auth(true), requireRoles('participant'), myEventsOvervi
 
 // GET /api/analytics/judge/leaderboard - Leaderboard for judges/organizers
 router.get('/judge/leaderboard', auth(true), requireRoles('judge', 'organizer', 'admin'), judgeLeaderboard);
+
+// GET /api/analytics/organizer/events-overview - Organizer-scoped events overview
+router.get('/organizer/events-overview', auth(true), requireRoles('organizer', 'admin'), organizerEventsOverview);
 
 // GET /api/analytics/skills - Skill distribution
 router.get('/skills', skillDistribution);

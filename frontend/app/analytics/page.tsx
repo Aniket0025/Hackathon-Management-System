@@ -5,11 +5,20 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BarChart3, TrendingUp, Users, Activity, RefreshCw, Download, Trophy } from "lucide-react"
-import { InteractiveStatsDashboard } from "@/components/interactive-stats-dashboard"
-import AdvancedAnalytics from "@/components/advanced-analytics-dashboard"
+import dynamic from "next/dynamic"
 import { useState, useEffect } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ResponsiveContainer, AreaChart, Area, BarChart as RBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from "recharts"
+
+// Dynamically import heavy components for better TTI
+const InteractiveStatsDashboard = dynamic(
+  () => import("@/components/interactive-stats-dashboard").then(m => m.InteractiveStatsDashboard),
+  { ssr: false, loading: () => <div className="h-40 bg-slate-100 rounded animate-pulse" /> }
+)
+const AdvancedAnalytics = dynamic(
+  () => import("@/components/advanced-analytics-dashboard"),
+  { ssr: false, loading: () => <div className="h-56 bg-slate-100 rounded animate-pulse" /> }
+)
 
 export default function AnalyticsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -17,6 +26,10 @@ export default function AnalyticsPage() {
   const [role, setRole] = useState<string | null>(null)
   const [loadingRole, setLoadingRole] = useState(true)
   const [roleError, setRoleError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  // If organizer has no hosted events, avoid showing global Advanced Insights that imply data
+  const [organizerHasEvents, setOrganizerHasEvents] = useState<boolean | null>(null)
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -32,6 +45,216 @@ export default function AnalyticsPage() {
     setLastUpdated(new Date().toLocaleTimeString())
   }, [])
 
+  // Export analytics as Excel using live backend data
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true)
+      const [{ default: XLSX }] = await Promise.all([
+        import('xlsx') as any,
+      ])
+
+      const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+
+      // Helper to fetch JSON safely
+      const jget = async (url: string, auth = false) => {
+        const res = await fetch(url, auth && token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json?.message || `Failed: ${url}`)
+        return json
+      }
+
+      // Workbook and sheets
+      const wb = XLSX.utils.book_new()
+
+      // 1) Platform Overview (dashboard)
+      try {
+        const dash = await jget(`${base}/api/analytics/dashboard`)
+        const flat = [dash?.data || dash]
+        const ws1 = XLSX.utils.json_to_sheet(flat)
+        XLSX.utils.book_append_sheet(wb, ws1, 'Platform Overview')
+      } catch {}
+
+      // 2) Trends
+      try {
+        const trends = await jget(`${base}/api/analytics/trends`)
+        const arr = Array.isArray(trends?.data) ? trends.data : (Array.isArray(trends) ? trends : [trends])
+        if (arr.length) {
+          const ws2 = XLSX.utils.json_to_sheet(arr)
+          XLSX.utils.book_append_sheet(wb, ws2, 'Trends')
+        }
+      } catch {}
+
+      // 3) Organizer hosted events + selected event details (if organizer)
+      if (role === 'organizer') {
+        try {
+          // Try to reuse current organizer filters from URL? Not available; fetch default overview
+          const overview = await jget(`${base}/api/analytics/organizer/events-overview`, true)
+          const rows = Array.isArray(overview?.data) ? overview.data : (Array.isArray(overview?.events) ? overview.events : [])
+          if (rows.length) {
+            const ws = XLSX.utils.json_to_sheet(rows)
+            XLSX.utils.book_append_sheet(wb, ws, 'Hosted Events')
+          }
+
+          // Selected organizer event from localStorage (maintained by OrganizerAnalyticsView)
+          const selectedId = typeof window !== 'undefined' ? localStorage.getItem('organizer_selected_event') : null
+          if (selectedId) {
+            try {
+              const ev = await jget(`${base}/api/analytics/events/${encodeURIComponent(selectedId)}`)
+              const data = ev?.data || ev
+              // KPI sheet
+              const kpi = [{
+                registrations: Number(data?.totalRegistrations ?? data?.registrations ?? 0),
+                submissions: Number(data?.totalSubmissions ?? data?.submissions ?? 0),
+                conversion: Number(data?.conversionRate ?? data?.conversion ?? 0),
+                activity24h: Number(data?.activity24h ?? data?.activeLast24h ?? data?.recentActivityCount ?? 0),
+              }]
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kpi), 'Selected Event KPIs')
+              // Time series
+              const ts = Array.isArray(data?.timeSeries) ? data.timeSeries : (Array.isArray(data?.submissionsOverTime) ? data.submissionsOverTime : [])
+              if (ts.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ts), 'Selected Event Timeseries')
+              // Status breakdown
+              const statusRows = [
+                { status: 'Accepted', value: Number(data?.submissionsAccepted ?? data?.accepted ?? 0) },
+                { status: 'Pending', value: Number(data?.submissionsPending ?? data?.pending ?? 0) },
+                { status: 'Rejected', value: Number(data?.submissionsRejected ?? data?.rejected ?? 0) },
+              ].filter(r => r.value > 0)
+              if (statusRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statusRows), 'Selected Event Status')
+            } catch {}
+          }
+        } catch {}
+      }
+
+      // 4) Judge leaderboard (if judge)
+      if (role === 'judge') {
+        try {
+          const assigned = await jget(`${base}/api/judges/my-events`, true)
+          const events = Array.isArray(assigned?.events) ? assigned.events : []
+          if (events.length) {
+            const firstId = events[0]?._id || events[0]?.eventId || events[0]?.event?._id
+            if (firstId) {
+              const lb = await jget(`${base}/api/analytics/judge/leaderboard?eventId=${encodeURIComponent(firstId)}`, !!token)
+              const rows = Array.isArray(lb?.data) ? lb.data : (Array.isArray(lb?.leaderboard) ? lb.leaderboard : [])
+              if (rows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Leaderboard')
+            }
+          }
+        } catch {}
+      }
+
+      // Meta sheet
+      const meta = [{ generatedAt: new Date().toLocaleString(), role: role || 'guest' }]
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meta), 'Meta')
+
+      XLSX.writeFile(wb, `HackHost-Analytics-${Date.now()}.xlsx`)
+    } catch (e) {
+      console.error(e)
+      alert((e as any)?.message || 'Failed to export Excel')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
+  const handleExportReport = async () => {
+    try {
+      setExporting(true)
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf") as any,
+      ])
+
+      const el = document.getElementById("analytics-report-root")
+      if (!el) throw new Error("Report root not found")
+
+      // Inject print-safe CSS to avoid oklch parsing issues during rasterization
+      const style = document.createElement('style')
+      style.setAttribute('data-pdf-style', 'true')
+      style.innerHTML = `
+        /* Global neutralization while exporting to avoid oklch/filters/gradients */
+        html.pdf-safe-export, html.pdf-safe-export body, #__next, #root, .pdf-safe, .pdf-safe * {
+          background-image: none !important;
+          -webkit-backdrop-filter: none !important;
+          backdrop-filter: none !important;
+          box-shadow: none !important;
+          text-shadow: none !important;
+          filter: none !important;
+        }
+        html.pdf-safe-export, html.pdf-safe-export body, .pdf-safe { background: #ffffff !important; color: #0f172a !important; }
+        html.pdf-safe-export *, .pdf-safe * { color: #0f172a !important; }
+        /* Neutralize Tailwind gradient vars that may be oklch-based */
+        html.pdf-safe-export *, .pdf-safe * {
+          --tw-gradient-from: #ffffff !important;
+          --tw-gradient-to: #ffffff !important;
+          --tw-gradient-stops: #ffffff !important;
+          --tw-ring-color: #e2e8f0 !important;
+          --tw-shadow: 0 0 #0000 !important;
+        }
+      `
+      document.head.appendChild(style)
+
+      // Toggle global and scoped classes to guarantee safe styles
+      document.documentElement.classList.add('pdf-safe-export')
+      el.classList.add("bg-white")
+      el.classList.add("pdf-safe")
+      const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" })
+      const imgData = canvas.toDataURL("image/png")
+
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" })
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pageWidth - 64
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      const availableHeightPt = pageHeight - 96 - 32
+      const pixelsPerPoint = canvas.height / imgHeight
+      const availableHeightPx = Math.floor(availableHeightPt * pixelsPerPoint)
+
+      let pageNum = 1
+      for (let yPx = 0; yPx < canvas.height; yPx += availableHeightPx) {
+        const sliceHeightPx = Math.min(availableHeightPx, canvas.height - yPx)
+        const sliceCanvas = document.createElement('canvas')
+        sliceCanvas.width = canvas.width
+        sliceCanvas.height = sliceHeightPx
+        const ctx = sliceCanvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(
+            canvas,
+            0, yPx, canvas.width, sliceHeightPx, // source rect
+            0, 0, canvas.width, sliceHeightPx      // dest rect
+          )
+        }
+        const sliceImgData = sliceCanvas.toDataURL('image/png')
+        const sliceHeightPt = (sliceHeightPx / pixelsPerPoint)
+        const sliceWidthPt = imgWidth
+        const sliceY = 96
+        pdf.addImage(sliceImgData, 'PNG', 32, sliceY, sliceWidthPt, sliceHeightPt)
+        pdf.setTextColor(100)
+        pdf.setFontSize(9)
+        pdf.text(`HackHost • Page ${pageNum}`, pageWidth / 2, pageHeight - 20, { align: "center" })
+        if (yPx + sliceHeightPx < canvas.height) {
+          pdf.addPage()
+          pdf.setFillColor(240, 253, 250)
+          pdf.rect(0, 0, pageWidth, 72, 'F')
+          pdf.setTextColor(16, 24, 39)
+          pdf.setFontSize(18)
+          pdf.text("HackHost – Advanced Analytics Report", 32, 44)
+          pageNum += 1
+        }
+      }
+
+      pdf.save(`HackHost-Analytics-Report-${Date.now()}.pdf`)
+      el.classList.remove("bg-white")
+      el.classList.remove("pdf-safe")
+      document.documentElement.classList.remove('pdf-safe-export')
+      const injected = document.querySelector('style[data-pdf-style="true"]')
+      if (injected) injected.remove()
+    } catch (e) {
+      console.error(e)
+      alert((e as any)?.message || "Failed to export report")
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // Determine user role (participant/judge/organizer/admin)
   useEffect(() => {
     const init = async () => {
@@ -43,6 +266,24 @@ export default function AnalyticsPage() {
         const me = await meRes.json().catch(() => ({}))
         if (!meRes.ok) throw new Error(me?.message || "Failed to fetch user")
         setRole(me?.user?.role || null)
+        // If organizer, probe whether they have hosted events to gate Advanced Insights
+        if ((me?.user?.role || null) === 'organizer') {
+          try {
+            const params = new URLSearchParams({ status: 'all' })
+            const ovRes = await fetch(`${base}/api/analytics/organizer/events-overview?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
+            const ov = await ovRes.json().catch(() => ({}))
+            if (ovRes.ok) {
+              const list = Array.isArray(ov?.data) ? ov.data : (Array.isArray(ov?.events) ? ov.events : (Array.isArray(ov?.data?.events) ? ov.data.events : []))
+              setOrganizerHasEvents(Array.isArray(list) && list.length > 0)
+            } else {
+              setOrganizerHasEvents(null) // unknown => don't hide
+            }
+          } catch {
+            setOrganizerHasEvents(null)
+          }
+        } else {
+          setOrganizerHasEvents(null)
+        }
       } catch (e: any) {
         setRoleError(e?.message || "Unable to determine user role")
         setRole(null)
@@ -54,7 +295,7 @@ export default function AnalyticsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50" id="analytics-report-root">
       <AdvancedNavigation currentPath="/analytics" />
 
       <main className="container mx-auto px-4 sm:px-6 pt-24 pb-16">
@@ -92,10 +333,22 @@ export default function AnalyticsPage() {
             <Button
               variant="outline"
               size="lg"
+              onClick={handleExportReport}
+              disabled={exporting}
               className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
             >
               <Download className="w-4 h-4 mr-2" />
-              Export Report
+              {exporting ? 'Preparing…' : 'Export Report'}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleExportExcel}
+              disabled={exportingExcel}
+              className="bg-white/95 text-slate-800 border-2 border-slate-300 hover:bg-white hover:border-slate-400 transform-gpu transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 [transform:perspective(900px)_rotateX(0deg)_rotateY(0deg)] hover:[transform:perspective(900px)_rotateX(3deg)_rotateY(3deg)_translateY(-2px)]"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {exportingExcel ? 'Preparing…' : 'Export Excel'}
             </Button>
             {lastUpdated && (
               <span className="text-sm text-slate-700 font-medium">
@@ -135,7 +388,19 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <AdvancedAnalytics />
+                {/* If organizer with zero hosted events, avoid showing platform-wide metrics */}
+                {role === 'organizer' && organizerHasEvents === false ? (
+                  <div className="space-y-4">
+                    <div className="text-sm text-slate-600">No hosted events found for your account. Create an event to see Advanced Insights.</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-24 bg-slate-100 rounded animate-pulse" />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <AdvancedAnalytics />
+                )}
               </CardContent>
             </Card>
 
@@ -166,7 +431,7 @@ export default function AnalyticsPage() {
             </Card>
           </div>
 
-          {/* Global Leaderboard */}
+          {/* Global Leaderboard (visible for all roles) */}
           <GlobalLeaderboardSection />
         </div>
       </main>
@@ -197,10 +462,11 @@ function RoleAwareAnalytics({ loadingRole, role, roleError }: { loadingRole: boo
       </Card>
     )
   }
-  if (role === "participant") return <ParticipantAnalyticsView />
-  if (role === "judge" || role === "organizer" || role === "admin") return <JudgeAnalyticsView />
-  // Unauthenticated or other roles: show nothing extra
-  return null
+  if (!role) return null
+  if (role === 'organizer') return <OrganizerAnalyticsView />
+  // For judges, suppress the judge-specific leaderboard view; rely on the global leaderboard below
+  if (role === 'judge') return null
+  return <ParticipantAnalyticsView />
 }
 
 // Global leaderboard for everyone (optionally filter by event)
@@ -329,18 +595,51 @@ function ParticipantAnalyticsView() {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<string>("")
   const [includeAll, setIncludeAll] = useState(false) // false => only ongoing
+  const [me, setMe] = useState<{ id?: string; email?: string; name?: string } | null>(null)
+  const [team, setTeam] = useState<any | null>(null)
 
   const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  // Load current user to match team membership
+  const loadMe = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) { setMe(null); return }
+      const res = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.message || 'Failed to load user')
+      setMe({ id: json?.user?._id || json?.user?.id, email: json?.user?.email, name: json?.user?.name })
+    } catch {
+      setMe(null)
+    }
+  }
 
   const loadMyEvents = async () => {
     try {
       setError(null)
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
       if (!token) { setEvents([]); setSelected(""); return }
+      // Primary: my-events (auth)
       const res = await fetch(`${base}/api/analytics/my-events`, { headers: { Authorization: `Bearer ${token}` } })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.message || "Failed to load your events")
-      const list = Array.isArray(json?.data) ? json.data : (json?.events || [])
+      let list: any[] = []
+      if (res.ok) list = Array.isArray(json?.data) ? json.data : (json?.events || [])
+
+      // Fallbacks if nothing returned
+      if (!Array.isArray(list) || list.length === 0) {
+        try {
+          const statusParam = includeAll ? 'all' : 'ongoing'
+          let r2 = await fetch(`${base}/api/analytics/events-overview?status=${statusParam}`)
+          let j2 = await r2.json().catch(() => ({}))
+          if (r2.ok) list = Array.isArray(j2?.data?.events) ? j2.data.events : (Array.isArray(j2?.events) ? j2.events : (Array.isArray(j2?.data) ? j2.data : []))
+          if (!Array.isArray(list) || list.length === 0) {
+            r2 = await fetch(`${base}/api/analytics/events`)
+            j2 = await r2.json().catch(() => ({}))
+            if (r2.ok) list = Array.isArray(j2?.events) ? j2.events : (j2?.data || [])
+          }
+        } catch { /* ignore */ }
+      }
+
       const filtered = includeAll ? list : list.filter((ev: any) => isLiveEvent(ev))
       const simplified = filtered.map((ev: any) => ({ _id: ev?._id || ev?.eventId || ev?.event?._id, title: ev?.title || ev?.event?.title || "Event" })).filter((e: any) => e._id)
       setEvents(simplified)
@@ -366,13 +665,35 @@ function ParticipantAnalyticsView() {
     }
   }
 
+  // Load the participant's team for the selected event, synchronized to user
+  const loadMyTeamForEvent = async (eventId: string) => {
+    if (!eventId || !me?.email) { setTeam(null); return }
+    try {
+      const res = await fetch(`${base}/api/teams?eventId=${encodeURIComponent(eventId)}`)
+      const json = await res.json().catch(() => ({}))
+      const teams = Array.isArray(json?.teams) ? json.teams : (Array.isArray(json) ? json : [])
+      // Find team where current user is a member by email
+      const mine = teams.find((t: any) =>
+        Array.isArray(t?.members) && t.members.some((m: any) => (m?.email || m?.user?.email) && String(m.email || m?.user?.email).toLowerCase() === String(me.email).toLowerCase())
+      )
+      setTeam(mine || null)
+    } catch {
+      setTeam(null)
+    }
+  }
+
+  useEffect(() => { loadMe(); }, [])
   useEffect(() => { loadMyEvents() }, [includeAll])
   useEffect(() => {
     if (!selected) return
     loadEventAnalytics(selected)
-    const id = setInterval(() => loadEventAnalytics(selected), 15000)
+    const id = setInterval(() => loadEventAnalytics(selected), 30000)
     return () => clearInterval(id)
   }, [selected])
+  useEffect(() => {
+    if (!selected) return
+    loadMyTeamForEvent(selected)
+  }, [selected, me?.email])
 
   return (
     <Card className="glass-card border-0 shadow-xl">
@@ -415,6 +736,22 @@ function ParticipantAnalyticsView() {
           <div className="h-24 bg-slate-100 rounded animate-pulse" />
         ) : data ? (
           <div className="space-y-6">
+            {/* Team sync card */}
+            {team ? (
+              <Card className="border border-slate-200">
+                <CardHeader className="pb-2"><CardTitle className="text-base">Your Team</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-sm text-slate-700"><span className="font-semibold">Team:</span> {team?.name || team?._id || 'N/A'}</div>
+                  <div className="mt-2 grid md:grid-cols-2 gap-2">
+                    {(Array.isArray(team?.members) ? team.members : []).map((m: any, idx: number) => (
+                      <div key={idx} className="text-sm text-slate-600">{m?.name || m?.user?.name || m?.email || m?.user?.email}</div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="text-xs text-slate-500">No team found for this event. If you're in a team, ensure it's registered.</div>
+            )}
             {/* KPI Grid */}
             <div className="grid md:grid-cols-4 gap-4">
               <MetricBox label="Registrations" value={safeNum(data.totalRegistrations ?? data.registrations)} />
@@ -487,6 +824,407 @@ function ParticipantAnalyticsView() {
   )
 }
 
+// Organizer view: only events hosted by the organizer
+function OrganizerAnalyticsView() {
+  const [rows, setRows] = useState<Array<any>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [updatedAt, setUpdatedAt] = useState<string>("")
+  const [status, setStatus] = useState<string>("all") // ongoing | upcoming | completed | all
+  const [sortBy, setSortBy] = useState<string>("startDate")
+  const [order, setOrder] = useState<string>("desc")
+  const [selectedEventId, setSelectedEventId] = useState<string>("")
+  const [eventData, setEventData] = useState<any | null>(null)
+  const [eventLoading, setEventLoading] = useState(false)
+  const [eventError, setEventError] = useState<string | null>(null)
+  // Current organizer identity to filter owned events as a fallback
+  const [me, setMe] = useState<{ id?: string; email?: string } | null>(null)
+
+  const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4000"
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      if (!token) throw new Error("Not authenticated")
+      const params = new URLSearchParams()
+      // Always pass status including 'all' so backend doesn't default-filter
+      if (status) params.set('status', status)
+      if (sortBy) params.set('sortBy', sortBy)
+      if (order) params.set('order', order)
+      const res = await fetch(`${base}/api/analytics/organizer/events-overview?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.message || "Failed to load organizer analytics")
+      // Accept multiple shapes from backend {data: [...] } or {events: [...] } or {data: {events: [...]}}
+      let list: any[] = []
+      if (Array.isArray(json?.data)) list = json.data
+      else if (Array.isArray(json?.events)) list = json.events
+      else if (Array.isArray(json?.data?.events)) list = json.data.events
+      else if (Array.isArray(json)) list = json
+
+      // Fallbacks if status=all returns nothing
+      if ((!Array.isArray(list) || list.length === 0) && status === 'all') {
+        try {
+          // Retry without status param
+          const p2 = new URLSearchParams()
+          if (sortBy) p2.set('sortBy', sortBy)
+          if (order) p2.set('order', order)
+          const r2 = await fetch(`${base}/api/analytics/organizer/events-overview?${p2.toString()}`,
+            { headers: { Authorization: `Bearer ${token}` } })
+          const j2 = await r2.json().catch(() => ({}))
+          if (r2.ok) {
+            let l2: any[] = []
+            if (Array.isArray(j2?.data)) l2 = j2.data
+            else if (Array.isArray(j2?.events)) l2 = j2.events
+            else if (Array.isArray(j2?.data?.events)) l2 = j2.data.events
+            else if (Array.isArray(j2)) l2 = j2
+            list = l2
+          }
+        } catch {}
+      }
+      if ((!Array.isArray(list) || list.length === 0) && status === 'all') {
+        try {
+          // Retry with status=ongoing as a last resort
+          const p3 = new URLSearchParams()
+          p3.set('status', 'ongoing')
+          if (sortBy) p3.set('sortBy', sortBy)
+          if (order) p3.set('order', order)
+          const r3 = await fetch(`${base}/api/analytics/organizer/events-overview?${p3.toString()}`,
+            { headers: { Authorization: `Bearer ${token}` } })
+          const j3 = await r3.json().catch(() => ({}))
+          if (r3.ok) {
+            let l3: any[] = []
+            if (Array.isArray(j3?.data)) l3 = j3.data
+            else if (Array.isArray(j3?.events)) l3 = j3.events
+            else if (Array.isArray(j3?.data?.events)) l3 = j3.data.events
+            else if (Array.isArray(j3)) l3 = j3
+            list = l3
+          }
+        } catch {}
+      }
+      // Always attempt to merge owned events from /api/events to ensure parity with Organizer Events page
+      if (me) {
+        try {
+          const evRes = await fetch(`${base}/api/events`,
+            token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+          const evJson = await evRes.json().catch(() => ({}))
+          if (evRes.ok) {
+            const evs = Array.isArray(evJson?.events) ? evJson.events : (Array.isArray(evJson) ? evJson : [])
+            const mine = evs.filter((e: any) => {
+              const ownerId = e?.organizerId || e?.organizer?._id || e?.createdBy || e?.ownerId || e?.userId || e?.creatorId || e?.authorId
+              const ownerEmail = e?.organizerEmail || e?.organizer?.email || e?.createdByEmail || e?.ownerEmail || e?.creatorEmail
+              return (
+                (ownerId && String(ownerId) === String(me.id)) ||
+                (ownerEmail && me.email && String(ownerEmail).toLowerCase() === String(me.email).toLowerCase())
+              )
+            })
+            // Adapt to organizer overview row shape with safe defaults
+            const adapted = mine.map((e: any) => {
+              const start = e?.startDate || e?.start || e?.startsAt
+              const end = e?.endDate || e?.end || e?.endsAt
+              const now = Date.now()
+              let st = 'upcoming'
+              const sTs = start ? new Date(start).getTime() : undefined
+              const eTs = end ? new Date(end).getTime() : undefined
+              if (sTs && eTs) st = now < sTs ? 'upcoming' : (now > eTs ? 'completed' : 'ongoing')
+              else if (sTs) st = now < sTs ? 'upcoming' : 'ongoing'
+              else if (eTs) st = now > eTs ? 'completed' : 'ongoing'
+              const eid = e?._id || e?.id || e?.eventId || e?.event?._id || e?.slug
+              return {
+                id: eid,
+                _id: eid,
+                title: e?.title || e?.name || e?.event?.title || 'Event',
+                status: st,
+                startDate: start || null,
+                endDate: end || null,
+                metrics: {
+                  registrations: Number(e?.registrationsCount || e?.metrics?.registrations || 0),
+                  submissions: Number(e?.submissionsCount || e?.metrics?.submissions || 0),
+                  conversion: Number(e?.metrics?.conversion || 0),
+                  activity24h: Number(e?.metrics?.activity24h || 0),
+                }
+              }
+            })
+            // Merge without duplicates by id/_id/eventId
+            const seen = new Set(
+              (Array.isArray(list) ? list : []).map((r: any) => String(r?.id || r?._id || r?.eventId || r?.slug))
+            )
+            const merged = [
+              ...(Array.isArray(list) ? list : []),
+              ...adapted.filter((r: any) => {
+                const rid = String(r?.id || r?._id || r?.eventId || r?.slug)
+                if (!rid) return false
+                if (seen.has(rid)) return false
+                seen.add(rid)
+                return true
+              })
+            ]
+            list = merged
+          }
+        } catch { /* ignore */ }
+      }
+
+      setRows(list)
+      // Clear selection if current selected event is not in the new list
+      if (!list || list.length === 0) {
+        setSelectedEventId("")
+      } else if (selectedEventId && !list.some((r: any) => String(r?.id || r?._id || r?.eventId) === String(selectedEventId))) {
+        setSelectedEventId("")
+      }
+      setUpdatedAt(new Date().toLocaleTimeString())
+    } catch (e: any) {
+      setError(e?.message || "Unable to load organizer analytics")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [status, sortBy, order])
+  // When organizer identity arrives, try reload if current list is empty
+  useEffect(() => {
+    if (me && (!rows || rows.length === 0)) {
+      load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me])
+  useEffect(() => {
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
+  }, [status, sortBy, order])
+
+  // When organizer rows change, set a default selected event if not chosen
+  useEffect(() => {
+    if (!selectedEventId && rows.length) {
+      const first = rows[0]
+      const id = first?.id || first?._id || first?.eventId
+      if (id) setSelectedEventId(String(id))
+    }
+  }, [rows, selectedEventId])
+
+  // Load per-event analytics for selected organizer event
+  useEffect(() => {
+    // Persist selection for exports
+    if (typeof window !== 'undefined') {
+      if (selectedEventId) localStorage.setItem('organizer_selected_event', selectedEventId)
+      else localStorage.removeItem('organizer_selected_event')
+    }
+
+    const run = async () => {
+      if (!selectedEventId) { setEventData(null); return }
+      try {
+        setEventLoading(true)
+        setEventError(null)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+        const res = await fetch(`${base}/api/analytics/events/${encodeURIComponent(selectedEventId)}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json?.message || 'Failed to load event analytics')
+        setEventData(json?.data || json)
+      } catch (e: any) {
+        setEventError(e?.message || 'Unable to load event analytics')
+        setEventData(null)
+      } finally {
+        setEventLoading(false)
+      }
+    }
+    run()
+    const id = selectedEventId
+    const timer = setInterval(run, 30000)
+    return () => clearInterval(timer)
+  }, [selectedEventId])
+
+  const totals = rows.reduce((acc: any, r: any) => {
+    acc.reg += Number(r?.metrics?.registrations || 0)
+    acc.sub += Number(r?.metrics?.submissions || 0)
+    return acc
+  }, { reg: 0, sub: 0 })
+
+  return (
+    <Card className="glass-card border-0 shadow-xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <BarChart3 className="w-5 h-5 text-cyan-600" />
+          Organizer Analytics (My Events)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error && <div className="text-sm text-red-600">{error}</div>}
+        <div className="grid gap-3 md:grid-cols-5">
+          <div className="md:col-span-2">
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger>
+                <SelectValue placeholder={rows.length ? 'Select hosted event' : 'No events'} />
+              </SelectTrigger>
+              <SelectContent>
+                {rows.map((r: any, idx: number) => {
+                  const id = r?.id || r?._id || r?.eventId
+                  if (!id) return null
+                  return <SelectItem key={String(id)} value={String(id)}>{r?.title || `Event ${idx + 1}`}</SelectItem>
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-1">
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ongoing">Ongoing</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-1">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="startDate">Start date</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+                <SelectItem value="registrations">Registrations</SelectItem>
+                <SelectItem value="submissions">Submissions</SelectItem>
+                <SelectItem value="conversion">Conversion</SelectItem>
+                <SelectItem value="activity24h">Activity 24h</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-1">
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger>
+                <SelectValue placeholder="Order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Desc</SelectItem>
+                <SelectItem value="asc">Asc</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {updatedAt && (
+            <div className="text-sm text-slate-500 self-center md:text-right">Updated: {updatedAt}</div>
+          )}
+        </div>
+
+        {/* Selected Event KPIs */}
+        <Card className="border border-slate-200">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Selected Event Overview</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {eventError && <div className="text-sm text-red-600">{eventError}</div>}
+            {eventLoading ? (
+              <div className="h-20 bg-slate-100 rounded animate-pulse" />
+            ) : eventData ? (
+              <>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <MetricBox label="Registrations" value={safeNum(eventData.totalRegistrations ?? eventData.registrations)} />
+                  <MetricBox label="Submissions" value={safeNum(eventData.totalSubmissions ?? eventData.submissions)} />
+                  <MetricBox label="Conversion" value={safeNum(eventData.conversionRate ?? eventData.conversion)} suffix="%" />
+                  <MetricBox label="Active 24h" value={safeNum(eventData.activity24h ?? eventData.activeLast24h ?? eventData.recentActivityCount)} />
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-base">Submissions Over Time</CardTitle></CardHeader>
+                    <CardContent className="h-56">
+                      {computeTimeSeries(eventData).length ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={computeTimeSeries(eventData)}>
+                            <defs>
+                              <linearGradient id="colorOrgSub" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="value" stroke="#06b6d4" fillOpacity={1} fill="url(#colorOrgSub)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full bg-slate-50 rounded flex items-center justify-center text-sm text-slate-500">No time-series</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-base">Submission Status</CardTitle></CardHeader>
+                    <CardContent className="h-56">
+                      {computeStatusPie(eventData).length ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={computeStatusPie(eventData)} dataKey="value" nameKey="name" outerRadius={80}>
+                              {computeStatusPie(eventData).map((_, i) => (
+                                <Cell key={i} fill={["#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"][i % 4]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full bg-slate-50 rounded flex items-center justify-center text-sm text-slate-500">No status data</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-slate-600">Select an event to view details.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Totals */}
+        <div className="grid md:grid-cols-3 gap-4">
+          <MetricBox label="Total Hosted Events" value={rows.length} />
+          <MetricBox label="Total Registrations" value={totals.reg} />
+          <MetricBox label="Total Submissions" value={totals.sub} />
+        </div>
+
+        {/* Events table */}
+        {loading ? (
+          <div className="h-24 bg-slate-100 rounded animate-pulse" />
+        ) : rows.length === 0 ? (
+          <div className="text-sm text-slate-600">No events found for selected filters.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-600">
+                  <th className="py-2 pr-4">Event</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Start</th>
+                  <th className="py-2 pr-4">End</th>
+                  <th className="py-2 pr-4">Registrations</th>
+                  <th className="py-2 pr-4">Submissions</th>
+                  <th className="py-2 pr-4">Conversion</th>
+                  <th className="py-2 pr-4">Active 24h</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r: any, idx: number) => (
+                  <tr key={String(r?.id || idx)} className="border-t">
+                    <td className="py-2 pr-4 font-medium">{r?.title || 'Event'}</td>
+                    <td className="py-2 pr-4 capitalize">{r?.status || '-'}</td>
+                    <td className="py-2 pr-4">{r?.startDate ? new Date(r.startDate).toLocaleDateString() : '-'}</td>
+                    <td className="py-2 pr-4">{r?.endDate ? new Date(r.endDate).toLocaleDateString() : '-'}</td>
+                    <td className="py-2 pr-4">{safeNum(r?.metrics?.registrations)}</td>
+                    <td className="py-2 pr-4">{safeNum(r?.metrics?.submissions)}</td>
+                    <td className="py-2 pr-4">{safeNum(r?.metrics?.conversion)}%</td>
+                    <td className="py-2 pr-4">{safeNum(r?.metrics?.activity24h)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // Judge/Organizer view: select event and see leaderboard
 function JudgeAnalyticsView() {
   const [events, setEvents] = useState<Array<{ _id: string; title: string }>>([])
@@ -502,20 +1240,49 @@ function JudgeAnalyticsView() {
   const loadEvents = async () => {
     try {
       setError(null)
-      // Prefer only ongoing events
-      let res = await fetch(`${base}/api/analytics/events-overview?status=ongoing`)
-      let json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.message || "Failed to load events overview")
-      let list = Array.isArray(json?.data?.events) ? json.data.events : (Array.isArray(json?.events) ? json.events : (Array.isArray(json?.data) ? json.data : []))
-      if (!Array.isArray(list) || list.length === 0) {
-        // Fallback to all events and then filter
-        res = await fetch(`${base}/api/analytics/events`)
-        json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json?.message || "Failed to load events")
-        list = Array.isArray(json?.events) ? json.events : (json?.data || [])
+      // Try assigned events endpoint (auth)
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      let list: any[] = []
+      // 1) Assigned events preferred
+      if (token) {
+        try {
+          const resAssigned = await fetch(`${base}/api/judges/my-events`, { headers: { Authorization: `Bearer ${token}` } })
+          const jsonAssigned = await resAssigned.json().catch(() => ({}))
+          if (resAssigned.ok) {
+            if (Array.isArray(jsonAssigned?.events)) list = jsonAssigned.events
+            else if (Array.isArray(jsonAssigned?.data)) list = jsonAssigned.data
+            else if (Array.isArray(jsonAssigned?.assignedEvents)) list = jsonAssigned.assignedEvents
+            else if (Array.isArray(jsonAssigned)) list = jsonAssigned
+          }
+        } catch { /* ignore and fallback */ }
       }
+      // 2) If no assigned, fallback to overview (include auth if available)
+      if (!Array.isArray(list) || list.length === 0) {
+        const statusParam = includeAll ? 'all' : 'ongoing'
+        let res = await fetch(`${base}/api/analytics/events-overview?status=${statusParam}`,
+          token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        let json = await res.json().catch(() => ({}))
+        if (res.ok) {
+          list = Array.isArray(json?.data?.events) ? json.data.events : (Array.isArray(json?.events) ? json.events : (Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : [])))
+        }
+        // 3) Last resort: basic list
+        if (!Array.isArray(list) || list.length === 0) {
+          res = await fetch(`${base}/api/analytics/events`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+          json = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(json?.message || "Failed to load events")
+          list = Array.isArray(json?.events) ? json.events : (json?.data || (Array.isArray(json) ? json : []))
+        }
+      }
+      // Filter by live if needed
       const filtered = includeAll ? list : list.filter((ev: any) => isLiveEvent(ev))
-      const simplified = filtered.map((ev: any) => ({ _id: ev?._id || ev?.eventId || ev?.event?._id, title: ev?.title || ev?.event?.title || "Event" })).filter((e: any) => e._id)
+      // Normalize id/title mapping
+      const simplified = filtered
+        .map((ev: any) => {
+          const eid = ev?._id || ev?.id || ev?.eventId || ev?.event?._id || ev?.slug
+          const title = ev?.title || ev?.name || ev?.event?.title || 'Event'
+          return eid ? { _id: String(eid), title } : null
+        })
+        .filter(Boolean) as Array<{ _id: string; title: string }>
       setEvents(simplified)
       if (!selected && simplified.length) setSelected(simplified[0]._id)
     } catch (e: any) {
@@ -547,7 +1314,7 @@ function JudgeAnalyticsView() {
   useEffect(() => {
     if (!selected) return
     loadLeaderboard(selected)
-    const id = setInterval(() => loadLeaderboard(selected), 15000)
+    const id = setInterval(() => loadLeaderboard(selected), 30000)
     return () => clearInterval(id)
   }, [selected])
 
