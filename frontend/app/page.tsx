@@ -304,7 +304,7 @@ export default function HomePage() {
               placeholder="Enter your email"
               className="bg-white/10 border-white/20 text-white placeholder:text-cyan-100 focus:bg-white/20 min-h-[48px] touch-manipulation"
             />
-            <Button className="bg-white text-cyan-600 hover:bg-cyan-50 font-semibold min-h-[48px] px-6 touch-manipulation">
+            <Button variant="glass" className="font-semibold min-h-[48px] px-6 touch-manipulation">
               Subscribe
             </Button>
           </div>
