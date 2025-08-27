@@ -344,7 +344,7 @@ export default function HomePage() {
                   setSubmitting(false)
                 }
               }}
-              className="bg-white text-cyan-600 hover:bg-cyan-50 font-semibold min-h-[48px] px-6 touch-manipulation"
+              className="bg-blue-600 text-white hover:bg-blue-500 font-semibold min-h-[48px] px-6 touch-manipulation"
             >
               {submitting ? 'Subscribing…' : 'Subscribe'}
             </Button>
