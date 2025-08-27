@@ -43,6 +43,9 @@ export default function HomePage() {
     projects: 0,
     success: 0,
   })
+  const [email, setEmail] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [subMsg, setSubMsg] = useState<string | null>(null)
 
   useEffect(() => {
     setIsVisible(true)
@@ -301,13 +304,52 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-md mx-auto">
             <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
               placeholder="Enter your email"
+              aria-invalid={!!subMsg && !subMsg.toLowerCase().includes('success')}
               className="bg-white/10 border-white/20 text-white placeholder:text-cyan-100 focus:bg-white/20 min-h-[48px] touch-manipulation"
             />
-            <Button className="bg-white text-cyan-600 hover:bg-cyan-50 font-semibold min-h-[48px] px-6 touch-manipulation">
-              Subscribe
+            <Button
+              disabled={submitting}
+              onClick={async () => {
+                setSubMsg(null)
+                const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+                if (!valid) {
+                  setSubMsg('Please enter a valid email address')
+                  return
+                }
+                setSubmitting(true)
+                try {
+                  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000'
+                  const res = await fetch(`${base}/api/subscribers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, source: 'homepage' }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setSubMsg(data?.message ? `Success: ${data.message}` : 'Success: Subscribed')
+                    setEmail('')
+                  } else {
+                    const err = await res.json().catch(() => ({}))
+                    setSubMsg(err?.message || 'Failed to subscribe')
+                  }
+                } catch (e) {
+                  setSubMsg('Network error. Please try again later.')
+                } finally {
+                  setSubmitting(false)
+                }
+              }}
+              className="bg-white text-cyan-600 hover:bg-cyan-50 font-semibold min-h-[48px] px-6 touch-manipulation"
+            >
+              {submitting ? 'Subscribing…' : 'Subscribe'}
             </Button>
           </div>
+          {subMsg && (
+            <p className="mt-3 text-sm text-white/90">{subMsg}</p>
+          )}
         </div>
       </section>
 

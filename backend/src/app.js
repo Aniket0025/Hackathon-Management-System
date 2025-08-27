@@ -19,6 +19,7 @@ const evaluationsRoutes = require('./routes/evaluations');
 const invitesRoutes = require('./routes/invites');
 const paymentsRoutes = require('./routes/payments');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const subscribersRoutes = require('./routes/subscribers');
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api/evaluations', evaluationsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/invites', invitesRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/subscribers', subscribersRoutes);
 
 // 404 and error handler
 app.use(notFound);
