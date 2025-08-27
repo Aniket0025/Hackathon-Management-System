@@ -346,6 +346,18 @@ export default function EventsPage() {
                   >
                     <Link prefetch href={`/events/${ev._id}`}>View Details</Link>
                   </Button>
+                  {role === "organizer" && (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="bg-white text-slate-800 border-2 border-slate-300 hover:border-slate-400 hover:bg-white transform-gpu transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                      <Link prefetch href={`/leaderboard?eventId=${ev._id}`}>
+                        View Leaderboard
+                      </Link>
+                    </Button>
+                  )}
                   {role !== "organizer" && role !== "judge" && (
                     <Button
                       asChild
